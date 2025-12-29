@@ -1,0 +1,11 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type HealthCheck {
+  status: String!
+}
+
+type Query {
+  health: HealthCheck!
+}
