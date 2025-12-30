@@ -18,12 +18,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'auth-jwt') {
     }
 
     async validate(payload: { sub: string; email: string }) {
-        const user = await this.usersService.findById(payload.sub);
+        // Updated to populate role for database-driven RBAC
+        const user = await (this.usersService as any).findByIdWithRole(payload.sub);
 
         if (!user || !user.active) {
             throw new UnauthorizedException('User not found or inactive');
         }
 
-        return user; // This is attached to context.req.user
+        return user;
     }
 }

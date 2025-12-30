@@ -1,4 +1,5 @@
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import { RoleEntity } from '../../roles/entities/role.entity';
 
 @ObjectType()
 export class UserEntity {
@@ -41,8 +42,8 @@ export class UserEntity {
     @Field({ defaultValue: false })
     is_registered!: boolean;
 
-    @Field({ nullable: true })
-    role?: string;
+    @Field(() => RoleEntity, { nullable: true })
+    role?: RoleEntity;
 
     @Field(() => ID, { nullable: true })
     parent_id?: string;

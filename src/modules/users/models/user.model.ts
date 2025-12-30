@@ -1,4 +1,3 @@
-// src/modules/users/models/user.model.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
@@ -47,8 +46,8 @@ export class User {
     @Prop({ default: false, index: true })
     is_registered!: boolean;
 
-    @Prop({ index: true, sparse: true, trim: true })
-    role?: string;
+    @Prop({ type: Types.ObjectId, ref: 'Role', index: true })
+    role?: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: 'User', index: true })
     parent_id?: Types.ObjectId;
@@ -81,7 +80,6 @@ export class User {
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
 
-// Indexes remain exactly as in your backup
 UserSchema.index({ email: 1, active: 1 });
 UserSchema.index({ parent_id: 1, role: 1 });
 UserSchema.index({ domain: 1, active: 1 });

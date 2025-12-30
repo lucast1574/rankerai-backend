@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { RolesService } from '../roles/roles.service'; // Added for dynamic role lookup
 import { MailService } from '../../shared/email/mail.service';
 import { GoogleService } from '../../shared/google/google.service';
 import { hashPassword, verifyPassword } from '../../shared/utils/hash.util';
@@ -23,6 +24,7 @@ export class AuthService {
         private readonly googleService: GoogleService,
         private readonly configService: ConfigService,
         private readonly subscriptionsService: SubscriptionsService,
+        private readonly rolesService: RolesService, // Injected RolesService
     ) { }
 
     async register(input: any): Promise<{ message: string; user: UserDocument }> {
@@ -30,13 +32,16 @@ export class AuthService {
         if (existing) throw new ConflictException('User already exists');
 
         const hashedPassword = await hashPassword(input.password);
+
+        const userRole = await this.rolesService.findBySlug('user');
+
         const user = await this.usersService.create({
             ...input,
             password_hash: hashedPassword,
-            auth_provider: 'CREDENTIALS'
+            auth_provider: 'CREDENTIALS',
+            role: userRole?._id,
         });
 
-        // AUTO-ASSIGN FREE PLAN
         const freePlan = await this.subscriptionsService.findPlanBySlug('free');
         if (freePlan) {
             await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
@@ -77,13 +82,16 @@ export class AuthService {
     }
 
     private async generateTokens(user: UserDocument) {
-        // FIX: Payload sub must be a string
-        const payload = { sub: user._id.toString(), email: user.email, role: user.role };
+        // Correctly extract the slug whether the role is populated or not
+        const roleSlug = user.role && typeof user.role === 'object' && 'slug' in user.role
+            ? (user.role as any).slug
+            : user.role;
+
+        const payload = { sub: user._id.toString(), email: user.email, role: roleSlug };
 
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, {
                 secret: this.configService.getOrThrow<string>('auth.jwtSecret'),
-                // FIX: Cast string expiration to any to satisfy overload
                 expiresIn: this.configService.getOrThrow<string>('auth.jwtExpiration') as any,
             }),
             this.jwtService.signAsync(payload, {
@@ -119,10 +127,14 @@ export class AuthService {
         let user = await this.usersService.findByEmail(email);
 
         if (!user) {
+            // DYNAMIC ROLE ASSIGNMENT for Google Sign-up
+            const userRole = await this.rolesService.findBySlug('user');
+
             user = await this.usersService.createFromGoogle({
                 email: email,
                 first_name: googlePayload.given_name || 'User',
                 last_name: googlePayload.family_name || '',
+                role: userRole?._id,
             });
 
             // AUTO-ASSIGN FREE PLAN

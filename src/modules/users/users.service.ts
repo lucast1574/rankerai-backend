@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from './models/user.model';
 import { UpdateUserInput } from './dto/update-user.input';
 
@@ -11,26 +11,37 @@ export class UsersService {
     ) { }
 
     /**
-     * Returns all users in the database.
+     * Returns all users in the database with their roles populated.
      * Typically used for admin dashboards.
      */
     async findAll(): Promise<UserDocument[]> {
-        return this.userModel.find().exec();
+        return this.userModel.find().populate('role').exec();
     }
 
     /**
      * Finds a user by email and explicitly includes the password hash
-     * for authentication purposes.
+     * and role for authentication purposes.
      */
     async findByEmail(email: string): Promise<UserDocument | null> {
-        return this.userModel.findOne({ email }).select('+password_hash').exec();
+        return this.userModel.findOne({ email })
+            .select('+password_hash')
+            .populate('role')
+            .exec();
     }
 
     /**
-     * Finds a user by their MongoDB unique ID.
+     * Finds a user by their MongoDB unique ID and populates their role.
      */
     async findById(id: string): Promise<UserDocument | null> {
-        return this.userModel.findById(id).exec();
+        return this.userModel.findById(id).populate('role').exec();
+    }
+
+    /**
+     * Helper for JwtStrategy and other internal services to ensure 
+     * roles are loaded for Guard verification.
+     */
+    async findByIdWithRole(id: string): Promise<UserDocument | null> {
+        return this.userModel.findById(id).populate('role').exec();
     }
 
     /**
@@ -46,11 +57,13 @@ export class UsersService {
 
     /**
      * Creates a user profile specifically from Google OAuth data.
+     * Updated payload to accept the dynamic Role ObjectId.
      */
     async createFromGoogle(payload: {
         email: string;
         first_name: string;
-        last_name: string
+        last_name: string;
+        role?: Types.ObjectId; // Fixed: Allows Role assignment from AuthService
     }): Promise<UserDocument> {
         const newUser = new this.userModel({
             ...payload,
@@ -62,12 +75,12 @@ export class UsersService {
     }
 
     /**
-     * Updates user profile data.
-     * Uses $set to ensure only the provided fields are changed.
+     * Updates user profile data and returns the updated document with role.
      */
     async update(id: string, updateUserInput: UpdateUserInput): Promise<UserDocument> {
         const user = await this.userModel
             .findByIdAndUpdate(id, { $set: updateUserInput }, { new: true })
+            .populate('role')
             .exec();
 
         if (!user) {
