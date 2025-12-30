@@ -32,6 +32,7 @@ export class UserMapper {
         entity.created_by = doc.created_by?.toString();
         entity.updated_by = doc.updated_by?.toString();
 
+        // Accessing timestamps from Mongoose
         entity.created_on = (doc as any).created_on;
         entity.updated_on = (doc as any).updated_on;
 

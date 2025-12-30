@@ -42,7 +42,7 @@ export class UserEntity {
     @Field({ defaultValue: false })
     is_registered!: boolean;
 
-    @Field(() => RoleEntity, { nullable: true })
+    @Field(() => RoleEntity, { nullable: true }) // Returns the full Role object
     role?: RoleEntity;
 
     @Field(() => ID, { nullable: true })
