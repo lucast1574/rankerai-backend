@@ -6,6 +6,8 @@ export const configValidationSchema: Joi.ObjectSchema = Joi.object({
     MONGODB_URI: Joi.string().required(),
     JWT_SECRET: Joi.string().required(),
     JWT_EXPIRATION: Joi.string().required(),
+    JWT_REFRESH_SECRET: Joi.string().required(),
+    JWT_REFRESH_EXPIRATION: Joi.string().required(),
     API_PREFIX: Joi.string().default('api-v1'),
     GOOGLE_CLIENT_ID: Joi.string().required(),
     GOOGLE_CLIENT_SECRET: Joi.string().required(),

@@ -6,6 +6,7 @@ import {
     NotFoundException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../shared/email/mail.service';
 import { GoogleService } from '../../shared/google/google.service';
@@ -19,6 +20,7 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly mailService: MailService,
         private readonly googleService: GoogleService,
+        private readonly configService: ConfigService,
     ) { }
 
     async register(input: any): Promise<{ message: string; user: UserDocument }> {
@@ -26,7 +28,6 @@ export class AuthService {
         if (existing) throw new ConflictException('User already exists');
 
         const hashedPassword = await hashPassword(input.password);
-        // Ensure auth_provider is set to 'CREDENTIALS' for email signups
         const user = await this.usersService.create({
             ...input,
             password_hash: hashedPassword,
@@ -34,16 +35,13 @@ export class AuthService {
         });
 
         await this.mailService.sendWelcomeEmail(user.email, user.first_name);
-
         return { message: 'Registration successful', user };
     }
 
     async login(input: any) {
         const user = await this.usersService.findByEmail(input.email);
-
         if (!user) throw new UnauthorizedException('Invalid credentials');
 
-        // PROTECTION: Prevent password login for Google-registered accounts
         if (user.auth_provider === 'GOOGLE') {
             throw new BadRequestException('Your account is registered with Google');
         }
@@ -52,20 +50,48 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
+        await this.usersService.updateLastLogin(user._id.toString());
+        return this.generateTokens(user);
+    }
+
+    async refreshToken(token: string) {
+        try {
+            const payload = await this.jwtService.verifyAsync(token, {
+                secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+            });
+            const user = await this.usersService.findById(payload.sub);
+            if (!user || !user.active) throw new UnauthorizedException();
+
+            return this.generateTokens(user);
+        } catch {
+            throw new UnauthorizedException('Invalid refresh token');
+        }
+    }
+
+    private async generateTokens(user: UserDocument) {
         const payload = { sub: user._id, email: user.email, role: user.role };
+
+        const [accessToken, refreshToken] = await Promise.all([
+            this.jwtService.signAsync(payload),
+            this.jwtService.signAsync(payload, {
+                secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+                expiresIn: '7d',
+            }),
+        ]);
+
         return {
-            access_token: await this.jwtService.signAsync(payload),
+            access_token: accessToken,
+            refresh_token: refreshToken,
             user,
         };
     }
 
-    // NEW: Forgot Password Logic from old project
     async forgotPassword(email: string): Promise<boolean> {
         const user = await this.usersService.findByEmail(email);
         if (!user) throw new NotFoundException('User not found');
 
         const token = await this.jwtService.signAsync(
-            { sub: user._id, email: user.email },
+            { sub: user._id, email: user.email, type: 'recovery' },
             { expiresIn: '1h' }
         );
 
@@ -88,10 +114,6 @@ export class AuthService {
             await this.mailService.sendWelcomeEmail(user.email, user.first_name);
         }
 
-        const payload = { sub: user._id, email: user.email, role: user.role };
-        return {
-            access_token: await this.jwtService.signAsync(payload),
-            user,
-        };
+        return this.generateTokens(user);
     }
 }
