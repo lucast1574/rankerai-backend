@@ -4,9 +4,8 @@
     "module": "node16",
     "moduleResolution": "node16",
     "jsx": "react",
-    /* Strictness & Extensions */
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
+    "allowImportingTsExtensions": false,
+    "noEmit": false,
     "resolvePackageJsonExports": true,
     "esModuleInterop": true,
     "isolatedModules": true,
@@ -14,17 +13,14 @@
     "strict": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
-    /* NestJS Requirements */
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    /* Build & Paths */
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
     "sourceMap": true,
     "removeComments": true,
-    /* Reliability */
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false

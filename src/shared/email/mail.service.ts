@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as sgMail from '@sendgrid/mail';
+import sgMail from '@sendgrid/mail';
 import { render } from '@react-email/render';
 import { WelcomeEmail } from './templates/welcome';
 import { ForgotPasswordEmail } from './templates/forgot-password';
@@ -8,7 +8,9 @@ import { ForgotPasswordEmail } from './templates/forgot-password';
 @Injectable()
 export class MailService {
     constructor(private configService: ConfigService) {
-        sgMail.setApiKey(this.configService.getOrThrow<string>('email.apiKey'));
+        // Initialize SendGrid with the API Key
+        const apiKey = this.configService.getOrThrow<string>('email.apiKey');
+        sgMail.setApiKey(apiKey);
     }
 
     async sendWelcomeEmail(to: string, name: string) {
@@ -16,9 +18,9 @@ export class MailService {
         await this.sendMail(to, 'Welcome to RankerAI', html);
     }
 
-    // NEW: React Email implementation for Forgot Password
     async sendForgotPasswordEmail(to: string, name: string, token: string) {
-        const resetLink = `${this.configService.get<string>('app.frontendUrl')}/reset-password?token=${token}`;
+        const frontendUrl = this.configService.get<string>('app.frontendUrl');
+        const resetLink = `${frontendUrl}/reset-password?token=${token}`;
         const html = await render(ForgotPasswordEmail({ name, resetLink }));
         await this.sendMail(to, 'Reset your password', html);
     }
@@ -30,6 +32,13 @@ export class MailService {
             subject,
             html,
         };
-        await sgMail.send(msg);
+
+        try {
+            await sgMail.send(msg);
+        } catch (error) {
+            // It's good practice to log email errors specifically
+            console.error('SendGrid Error:', error);
+            throw error;
+        }
     }
 }

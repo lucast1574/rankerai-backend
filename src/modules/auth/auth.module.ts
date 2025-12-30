@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { RolesGuard } from '../../core/guards/roles.guard';
 import { UsersModule } from '../users/users.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { RolesModule } from '../roles/roles.module'; // Added Import
 import { EmailModule } from '../../shared/email/email.module';
 import { GoogleModule } from '../../shared/google/google.module';
 
@@ -17,7 +18,8 @@ import { GoogleModule } from '../../shared/google/google.module';
         UsersModule,
         EmailModule,
         GoogleModule,
-        forwardRef(() => SubscriptionsModule), // Handles circular dependency
+        RolesModule, // Added to provide RolesService to AuthService
+        forwardRef(() => SubscriptionsModule),
         PassportModule.register({ defaultStrategy: 'auth-jwt' }),
         JwtModule.register({}),
     ],

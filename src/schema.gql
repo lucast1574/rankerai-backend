@@ -1,0 +1,186 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponse {
+  """JWT access token for authentication"""
+  access_token: String!
+
+  """JWT refresh token to obtain new access tokens"""
+  refresh_token: String!
+
+  """The authenticated user profile"""
+  user: UserEntity!
+}
+
+input CreatePermissionInput {
+  code: String!
+  module: String!
+  name: String!
+}
+
+input CreateRoleInput {
+  description: String
+  name: String!
+  permissions: [String!]! = []
+  slug: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  createPermission(input: CreatePermissionInput!): PermissionEntity!
+  createRole(input: CreateRoleInput!): RoleEntity!
+
+  """Send reset password email"""
+  forgotPassword(email: String!): Boolean!
+
+  """Login with email and password"""
+  login(input: LoginInput!): AuthResponse!
+
+  """Get a new access token using a refresh token"""
+  refreshToken(token: String!): AuthResponse!
+
+  """Register a new user"""
+  register(input: RegisterInput!): UserEntity!
+
+  """Authenticate via Google ID Token"""
+  signInWithGoogle(idToken: String!): AuthResponse!
+  testConsumeCredit(amount: Float!, type: String!): Boolean!
+  updateMe(input: UpdateUserInput!): UserEntity!
+}
+
+type PermissionEntity {
+  _id: ID!
+  code: String!
+  createdAt: DateTime
+  module: String!
+  name: String!
+}
+
+type Query {
+  availablePlans: [SubscriptionPlanEntity!]!
+  checkFeatureAccess(currentCount: Int!, featureKey: String!): Boolean!
+  findAllUsers: [UserEntity!]!
+  myCreditBalance: UserCreditEntity!
+  mySubscription: UserSubscriptionEntity!
+  permissions: [PermissionEntity!]!
+  roles: [RoleEntity!]!
+}
+
+input RegisterInput {
+  email: String!
+  first_name: String!
+  last_name: String!
+  password: String!
+}
+
+type RoleEntity {
+  _id: ID!
+  active: Boolean!
+  created_on: DateTime
+  description: String
+  name: String!
+  permissions: [String!]!
+  slug: String!
+  updated_on: DateTime
+  version: Int!
+}
+
+type SubscriptionPlanEntity {
+  _id: ID!
+  active: Boolean!
+  created_on: DateTime
+  credits: Int!
+  features: JSON
+  is_enabled: Boolean!
+  name: String!
+  slug: String!
+  updated_on: DateTime
+  version: Int!
+}
+
+input UpdateUserInput {
+  email: String
+  first_name: String
+  last_name: String
+  password: String
+  sitemap_url: String
+  work_pattern: String
+}
+
+type UserCreditEntity {
+  _id: ID!
+  active: Boolean!
+  created_on: DateTime!
+  credit_type: String!
+  given_credit: Float!
+  is_one_time: Boolean!
+  is_recurring: Boolean!
+  is_rollover: Boolean!
+  last_reset_date: DateTime
+  last_rollover: Float
+  remaining_credit: Float!
+  status: String!
+  subscription_date: DateTime!
+  subscription_from: String
+  subscription_id: ID!
+  total_credit: Float!
+  updated_on: DateTime!
+  user_id: ID!
+  version: Int!
+}
+
+type UserEntity {
+  _id: ID!
+  activation_code: String
+  activation_code_expiration_date: DateTime
+  active: Boolean!
+  allow_free_trial: Boolean!
+  auth_provider: String!
+  created_by: ID
+  created_on: DateTime!
+  domain: String
+  email: String!
+  first_name: String!
+  is_registered: Boolean!
+  language_id: ID
+  last_login: DateTime
+  last_name: String!
+  location_id: ID
+  locked: Boolean!
+  no_of_login: Int!
+  parent_id: ID
+  role: RoleEntity
+  sitemap_url: String
+  updated_by: ID
+  updated_on: DateTime!
+  version: Int!
+  work_pattern: String
+}
+
+type UserSubscriptionEntity {
+  _id: ID!
+  active: Boolean!
+  configuration_json: String
+  customer_id: String!
+  expired_at: DateTime
+  plan: SubscriptionPlanEntity!
+  status: String
+  subscription_id: String
+  user_id: ID!
+  version: Int!
+}
