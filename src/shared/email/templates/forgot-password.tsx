@@ -7,7 +7,7 @@ interface ForgotPasswordEmailProps {
     resetLink: string;
 }
 
-export const ForgotPasswordTemplate = ({ name, resetLink }: ForgotPasswordEmailProps) => (
+export const ForgotPasswordEmail = ({ name, resetLink }: ForgotPasswordEmailProps) => (
     <Html>
         <Container>
             <Heading>Password Reset</Heading>

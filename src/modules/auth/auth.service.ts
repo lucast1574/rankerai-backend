@@ -1,4 +1,10 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+    Injectable,
+    UnauthorizedException,
+    ConflictException,
+    BadRequestException,
+    NotFoundException
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../../shared/email/mail.service';
@@ -20,21 +26,29 @@ export class AuthService {
         if (existing) throw new ConflictException('User already exists');
 
         const hashedPassword = await hashPassword(input.password);
-        const user = await this.usersService.create({ ...input, password: hashedPassword });
+        // Ensure auth_provider is set to 'CREDENTIALS' for email signups
+        const user = await this.usersService.create({
+            ...input,
+            password_hash: hashedPassword,
+            auth_provider: 'CREDENTIALS'
+        });
 
         await this.mailService.sendWelcomeEmail(user.email, user.first_name);
 
-        // Explicitly return user to satisfy the resolver's requirements
-        return {
-            message: 'Registration successful',
-            user
-        };
+        return { message: 'Registration successful', user };
     }
 
     async login(input: any) {
         const user = await this.usersService.findByEmail(input.email);
 
-        if (!user || !user.password_hash || !(await verifyPassword(input.password, user.password_hash))) {
+        if (!user) throw new UnauthorizedException('Invalid credentials');
+
+        // PROTECTION: Prevent password login for Google-registered accounts
+        if (user.auth_provider === 'GOOGLE') {
+            throw new BadRequestException('Your account is registered with Google');
+        }
+
+        if (!user.password_hash || !(await verifyPassword(input.password, user.password_hash))) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
@@ -43,6 +57,20 @@ export class AuthService {
             access_token: await this.jwtService.signAsync(payload),
             user,
         };
+    }
+
+    // NEW: Forgot Password Logic from old project
+    async forgotPassword(email: string): Promise<boolean> {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) throw new NotFoundException('User not found');
+
+        const token = await this.jwtService.signAsync(
+            { sub: user._id, email: user.email },
+            { expiresIn: '1h' }
+        );
+
+        await this.mailService.sendForgotPasswordEmail(user.email, user.first_name, token);
+        return true;
     }
 
     async googleLogin(idToken: string) {

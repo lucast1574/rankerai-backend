@@ -5,7 +5,7 @@ interface WelcomeEmailProps {
     name: string;
 }
 
-export const WelcomeTemplate = ({ name }: WelcomeEmailProps) => (
+export const WelcomeEmail = ({ name }: WelcomeEmailProps) => (
     <Html>
         <Head />
         <Preview>Welcome to Ranker AI!</Preview>

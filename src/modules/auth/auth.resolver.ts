@@ -37,6 +37,19 @@ export class AuthResolver {
         return result.access_token;
     }
 
+    // NEW: Password Recovery Mutation
+    @Public()
+    @Mutation(() => Boolean, { description: 'Send reset password email' })
+    async forgotPassword(@Args('email') email: string): Promise<boolean> {
+        return this.authService.forgotPassword(email);
+    }
+
+    // NEW: Sign Out Placeholder
+    @Mutation(() => String, { description: 'Logout the current user' })
+    signOut(): string {
+        return 'Successful logout';
+    }
+
     @Query(() => UserEntity, { description: 'Get current logged-in user profile' })
     me(@CurrentUser() user: UserDocument): UserEntity {
         return UserMapper.toEntity(user);
