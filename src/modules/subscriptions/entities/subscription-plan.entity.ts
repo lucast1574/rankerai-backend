@@ -9,13 +9,18 @@ export class SubscriptionPlanEntity {
     @Field()
     name!: string;
 
+    @Field()
+    slug!: string; // Added to Entity
+
+    @Field(() => Int)
+    credits!: number; // Added to Entity
+
     @Field(() => Boolean)
     active!: boolean;
 
     @Field(() => Boolean)
     is_enabled!: boolean;
 
-    // NEW: Exposes the dynamic features to GraphQL
     @Field(() => GraphQLJSON, { nullable: true })
     features?: any;
 

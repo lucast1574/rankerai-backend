@@ -23,7 +23,12 @@ export class SubscriptionPlan {
     @Prop({ required: true, trim: true, index: true })
     name!: string;
 
-    // NEW: Consolidated features replacement for PlanChild backup
+    @Prop({ required: true, unique: true, trim: true, index: true, lowercase: true })
+    slug!: string; // Added: Required for findPlanBySlug('free')
+
+    @Prop({ type: Number, default: 0 })
+    credits!: number; // Added: Fixed the 'Property credits does not exist' error
+
     @Prop({ type: Object, default: {} })
     features!: Record<string, any>;
 
@@ -48,5 +53,6 @@ export class SubscriptionPlan {
 export type SubscriptionPlanDocument = HydratedDocument<SubscriptionPlan>;
 export const SubscriptionPlanSchema = SchemaFactory.createForClass(SubscriptionPlan);
 
+SubscriptionPlanSchema.index({ slug: 1, active: 1 }); // Added for faster slug lookups
 SubscriptionPlanSchema.index({ active: 1, is_enabled: 1 }, { name: 'idx_plan_active_enabled' });
 SubscriptionPlanSchema.index({ name: 1, active: 1 }, { name: 'idx_plan_name_active' });

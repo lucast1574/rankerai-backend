@@ -8,6 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { MailService } from '../../shared/email/mail.service';
 import { GoogleService } from '../../shared/google/google.service';
 import { hashPassword, verifyPassword } from '../../shared/utils/hash.util';
@@ -21,6 +22,7 @@ export class AuthService {
         private readonly mailService: MailService,
         private readonly googleService: GoogleService,
         private readonly configService: ConfigService,
+        private readonly subscriptionsService: SubscriptionsService,
     ) { }
 
     async register(input: any): Promise<{ message: string; user: UserDocument }> {
@@ -33,6 +35,12 @@ export class AuthService {
             password_hash: hashedPassword,
             auth_provider: 'CREDENTIALS'
         });
+
+        // AUTO-ASSIGN FREE PLAN
+        const freePlan = await this.subscriptionsService.findPlanBySlug('free');
+        if (freePlan) {
+            await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
+        }
 
         await this.mailService.sendWelcomeEmail(user.email, user.first_name);
         return { message: 'Registration successful', user };
@@ -57,7 +65,7 @@ export class AuthService {
     async refreshToken(token: string) {
         try {
             const payload = await this.jwtService.verifyAsync(token, {
-                secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+                secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
             });
             const user = await this.usersService.findById(payload.sub);
             if (!user || !user.active) throw new UnauthorizedException();
@@ -69,13 +77,18 @@ export class AuthService {
     }
 
     private async generateTokens(user: UserDocument) {
-        const payload = { sub: user._id, email: user.email, role: user.role };
+        // FIX: Payload sub must be a string
+        const payload = { sub: user._id.toString(), email: user.email, role: user.role };
 
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync(payload),
             this.jwtService.signAsync(payload, {
-                secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-                expiresIn: '7d',
+                secret: this.configService.getOrThrow<string>('auth.jwtSecret'),
+                // FIX: Cast string expiration to any to satisfy overload
+                expiresIn: this.configService.getOrThrow<string>('auth.jwtExpiration') as any,
+            }),
+            this.jwtService.signAsync(payload, {
+                secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
+                expiresIn: this.configService.getOrThrow<string>('auth.jwtRefreshExpiration') as any,
             }),
         ]);
 
@@ -91,7 +104,7 @@ export class AuthService {
         if (!user) throw new NotFoundException('User not found');
 
         const token = await this.jwtService.signAsync(
-            { sub: user._id, email: user.email, type: 'recovery' },
+            { sub: user._id.toString(), email: user.email, type: 'recovery' },
             { expiresIn: '1h' }
         );
 
@@ -111,6 +124,13 @@ export class AuthService {
                 first_name: googlePayload.given_name || 'User',
                 last_name: googlePayload.family_name || '',
             });
+
+            // AUTO-ASSIGN FREE PLAN
+            const freePlan = await this.subscriptionsService.findPlanBySlug('free');
+            if (freePlan) {
+                await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
+            }
+
             await this.mailService.sendWelcomeEmail(user.email, user.first_name);
         }
 

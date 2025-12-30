@@ -19,10 +19,54 @@ export class SubscriptionsService {
         private creditModel: Model<UserCreditDocument>,
     ) { }
 
-    /**
-     * NEW: Validates if a user can perform an action based on their plan limits.
-     * Usage: await service.validatePlanFeature(userId, 'max_projects', 10)
-     */
+    async findPlanBySlug(slug: string): Promise<SubscriptionPlanDocument | null> {
+        return this.planModel.findOne({ slug, active: true }).exec();
+    }
+
+    async createInitialSubscription(userId: string, planId: string): Promise<UserSubscriptionDocument> {
+        const plan = await this.planModel.findById(planId);
+        if (!plan) throw new NotFoundException('Subscription plan not found');
+
+        const sub = new this.userSubModel({
+            user_id: new Types.ObjectId(userId),
+            subscription_plan_id: plan._id,
+            active: true,
+            status: 'ACTIVE',
+            created_by: new Types.ObjectId(userId),
+        });
+
+        // Initialize user credits record based on the plan
+        await this.creditModel.create({
+            user_id: new Types.ObjectId(userId),
+            subscription_id: sub._id,
+            total_credit: plan.credits || 0,
+            remaining_credit: plan.credits || 0,
+            status: 'ACTIVE',
+            active: true,
+            created_by: new Types.ObjectId(userId),
+        });
+
+        return sub.save();
+    }
+
+    async checkSubscriptionValidity(userId: string): Promise<boolean> {
+        const sub = await this.userSubModel.findOne({
+            user_id: new Types.ObjectId(userId),
+            active: true
+        });
+
+        if (!sub) return false;
+
+        // Check for hard-coded expiration date
+        if (sub.expired_at && sub.expired_at < new Date()) {
+            sub.active = false;
+            sub.status = 'EXPIRED';
+            await sub.save();
+            return false;
+        }
+        return true;
+    }
+
     async validatePlanFeature(userId: string, featureKey: string, currentCount: number): Promise<boolean> {
         const sub = await this.userSubModel
             .findOne({ user_id: new Types.ObjectId(userId), active: true })
@@ -31,11 +75,9 @@ export class SubscriptionsService {
 
         if (!sub || !sub.subscription_plan_id) throw new NotFoundException('Active plan not found');
 
-        // Access the feature from the plan model
         const plan = sub.subscription_plan_id as any;
         const limit = plan.features?.[featureKey];
 
-        // If a limit exists and current usage exceeds it, block the action
         if (limit !== undefined && currentCount >= limit) {
             throw new BadRequestException(`Limit reached for ${featureKey}. Your plan allows only ${limit}.`);
         }
@@ -76,7 +118,7 @@ export class SubscriptionsService {
             active: true,
             version: 0,
             created_by: new Types.ObjectId(userId),
-        } as any);
+        });
     }
 
     async getUserCreditBalance(userId: string): Promise<UserCreditDocument> {
