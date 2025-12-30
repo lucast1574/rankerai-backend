@@ -3,7 +3,7 @@ import { HydratedDocument, Types } from 'mongoose';
 import { User } from '../../users/models/user.model';
 
 @Schema({
-    collection: 'subscription_plan', // Matches backup exactly
+    collection: 'subscription_plan',
     timestamps: {
         createdAt: 'created_on',
         updatedAt: 'updated_on',
@@ -12,7 +12,7 @@ import { User } from '../../users/models/user.model';
 })
 export class SubscriptionPlan {
     @Prop({ type: Types.ObjectId, auto: true })
-    _id!: Types.ObjectId; // Fixed: added ! for definite assignment
+    _id!: Types.ObjectId;
 
     @Prop({ type: Boolean, default: true, index: true })
     active!: boolean;
@@ -23,7 +23,11 @@ export class SubscriptionPlan {
     @Prop({ required: true, trim: true, index: true })
     name!: string;
 
-    /** AUDITORÍA (Matches backup exactly) */
+    // NEW: Consolidated features replacement for PlanChild backup
+    @Prop({ type: Object, default: {} })
+    features!: Record<string, any>;
+
+    /** AUDITORÍA */
     @Prop({ type: Types.ObjectId, ref: User.name, index: true })
     created_by!: Types.ObjectId;
 
@@ -44,6 +48,5 @@ export class SubscriptionPlan {
 export type SubscriptionPlanDocument = HydratedDocument<SubscriptionPlan>;
 export const SubscriptionPlanSchema = SchemaFactory.createForClass(SubscriptionPlan);
 
-// Preserving backup indexing strategy
 SubscriptionPlanSchema.index({ active: 1, is_enabled: 1 }, { name: 'idx_plan_active_enabled' });
 SubscriptionPlanSchema.index({ name: 1, active: 1 }, { name: 'idx_plan_name_active' });

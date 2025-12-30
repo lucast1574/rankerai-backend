@@ -1,4 +1,4 @@
-import { Resolver, Query, Args, Mutation, Float } from '@nestjs/graphql';
+import { Resolver, Query, Args, Mutation, Float, Int } from '@nestjs/graphql';
 import { SubscriptionsService } from './subscriptions.service';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { UserSubscriptionEntity } from './entities/user-subscription.entity';
@@ -22,6 +22,16 @@ export class SubscriptionsResolver {
     @Query(() => UserCreditEntity, { name: 'myCreditBalance' })
     async getMyCreditBalance(@CurrentUser() user: any) {
         return this.subService.getUserCreditBalance(user.sub);
+    }
+
+    // NEW: Expose plan limit validation to the API
+    @Query(() => Boolean, { name: 'checkFeatureAccess' })
+    async checkAccess(
+        @CurrentUser() user: any,
+        @Args('featureKey') featureKey: string,
+        @Args('currentCount', { type: () => Int }) currentCount: number,
+    ) {
+        return this.subService.validatePlanFeature(user.sub, featureKey, currentCount);
     }
 
     @Mutation(() => Boolean, { name: 'testConsumeCredit' })

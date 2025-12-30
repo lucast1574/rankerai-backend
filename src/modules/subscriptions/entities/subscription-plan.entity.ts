@@ -1,4 +1,5 @@
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 
 @ObjectType()
 export class SubscriptionPlanEntity {
@@ -13,6 +14,10 @@ export class SubscriptionPlanEntity {
 
     @Field(() => Boolean)
     is_enabled!: boolean;
+
+    // NEW: Exposes the dynamic features to GraphQL
+    @Field(() => GraphQLJSON, { nullable: true })
+    features?: any;
 
     @Field(() => Int)
     version!: number;

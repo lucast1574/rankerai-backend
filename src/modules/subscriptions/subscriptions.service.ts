@@ -19,12 +19,35 @@ export class SubscriptionsService {
         private creditModel: Model<UserCreditDocument>,
     ) { }
 
-    async findUserSubscription(userId: string): Promise<UserSubscriptionDocument> {
+    /**
+     * NEW: Validates if a user can perform an action based on their plan limits.
+     * Usage: await service.validatePlanFeature(userId, 'max_projects', 10)
+     */
+    async validatePlanFeature(userId: string, featureKey: string, currentCount: number): Promise<boolean> {
         const sub = await this.userSubModel
             .findOne({ user_id: new Types.ObjectId(userId), active: true })
             .populate('subscription_plan_id')
             .exec();
 
+        if (!sub || !sub.subscription_plan_id) throw new NotFoundException('Active plan not found');
+
+        // Access the feature from the plan model
+        const plan = sub.subscription_plan_id as any;
+        const limit = plan.features?.[featureKey];
+
+        // If a limit exists and current usage exceeds it, block the action
+        if (limit !== undefined && currentCount >= limit) {
+            throw new BadRequestException(`Limit reached for ${featureKey}. Your plan allows only ${limit}.`);
+        }
+
+        return true;
+    }
+
+    async findUserSubscription(userId: string): Promise<UserSubscriptionDocument> {
+        const sub = await this.userSubModel
+            .findOne({ user_id: new Types.ObjectId(userId), active: true })
+            .populate('subscription_plan_id')
+            .exec();
         if (!sub) throw new NotFoundException('No active subscription found');
         return sub;
     }
@@ -44,7 +67,6 @@ export class SubscriptionsService {
         userCredit.updated_on = new Date();
         await userCredit.save();
 
-        // FIXED: Use undefined instead of null and cast the object to any to bypass strict overload checks
         await this.usageLogModel.create({
             user_id: new Types.ObjectId(userId),
             usage: amount,
@@ -58,11 +80,7 @@ export class SubscriptionsService {
     }
 
     async getUserCreditBalance(userId: string): Promise<UserCreditDocument> {
-        const credit = await this.creditModel.findOne({
-            user_id: new Types.ObjectId(userId),
-            active: true
-        });
-
+        const credit = await this.creditModel.findOne({ user_id: new Types.ObjectId(userId), active: true });
         if (!credit) throw new NotFoundException('Credit record not found');
         return credit;
     }
