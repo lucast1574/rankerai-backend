@@ -13,13 +13,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'auth-jwt') {
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
-            secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
+            // Access configuration via the namespaced key defined in auth.config.ts
+            secretOrKey: configService.getOrThrow<string>('auth.jwtSecret'),
         });
     }
 
     async validate(payload: { sub: string; email: string }) {
-        // Updated to populate role for database-driven RBAC
-        const user = await (this.usersService as any).findByIdWithRole(payload.sub);
+        // Find user and populate the role to allow the RolesGuard to work dynamically
+        const user = await this.usersService.findByIdWithRole(payload.sub);
 
         if (!user || !user.active) {
             throw new UnauthorizedException('User not found or inactive');

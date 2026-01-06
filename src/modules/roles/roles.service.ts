@@ -14,8 +14,23 @@ export class RolesService {
         @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
     ) { }
 
+    /**
+     * Logic for RolesGuard to fetch dynamic permissions
+     */
     async getRoleWithPermissions(slug: string): Promise<RoleDocument | null> {
         return this.roleModel.findOne({ slug, active: true }).exec();
+    }
+
+    /**
+     * Finds a role by its unique slug.
+     * Required for assigning default roles during registration.
+     */
+    async findBySlug(slug: string): Promise<RoleDocument> {
+        const role = await this.roleModel.findOne({ slug, active: true }).exec();
+        if (!role) {
+            throw new NotFoundException(`Role with slug "${slug}" not found`);
+        }
+        return role;
     }
 
     async findAll(): Promise<RoleDocument[]> {

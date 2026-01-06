@@ -10,8 +10,7 @@ export class UserMapper {
         entity.first_name = doc.first_name;
         entity.last_name = doc.last_name;
 
-        // Map Role object if populated
-        if (doc.role && typeof doc.role === 'object' && 'slug' in doc.role) {
+        if (doc.role && typeof doc.role === 'object' && '_id' in (doc.role as any)) {
             entity.role = doc.role as any;
         }
 
@@ -32,7 +31,6 @@ export class UserMapper {
         entity.created_by = doc.created_by?.toString();
         entity.updated_by = doc.updated_by?.toString();
 
-        // Accessing timestamps from Mongoose
         entity.created_on = (doc as any).created_on;
         entity.updated_on = (doc as any).updated_on;
 

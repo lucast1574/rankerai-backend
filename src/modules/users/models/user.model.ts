@@ -46,7 +46,7 @@ export class User {
     @Prop({ default: false, index: true })
     is_registered!: boolean;
 
-    @Prop({ type: Types.ObjectId, ref: 'Role', index: true }) // Updated to reference Role model
+    @Prop({ type: Types.ObjectId, ref: 'Role', index: true })
     role?: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: 'User', index: true })

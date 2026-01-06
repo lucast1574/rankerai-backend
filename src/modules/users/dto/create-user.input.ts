@@ -1,12 +1,12 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { InputType, Field, ID } from '@nestjs/graphql';
 import { RegisterUserInput } from './register-user.input';
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional, IsMongoId } from 'class-validator';
 
 @InputType()
 export class CreateUserInput extends RegisterUserInput {
-    @Field({ nullable: true })
+    @Field(() => ID, { nullable: true })
     @IsOptional()
-    @IsString()
+    @IsMongoId()
     role?: string;
 
     @Field({ defaultValue: false })

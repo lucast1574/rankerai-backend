@@ -3,7 +3,6 @@ import {
     UnauthorizedException,
     ConflictException,
     BadRequestException,
-    NotFoundException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -88,11 +87,11 @@ export class AuthService {
         const payload = { sub: user._id.toString(), email: user.email, role: roleSlug };
 
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync(payload, {
+            this.jwtService.signAsync(payload as any, {
                 secret: this.configService.getOrThrow<string>('auth.jwtSecret'),
                 expiresIn: this.configService.getOrThrow<string>('auth.jwtExpiration') as any,
             }),
-            this.jwtService.signAsync(payload, {
+            this.jwtService.signAsync(payload as any, {
                 secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
                 expiresIn: this.configService.getOrThrow<string>('auth.jwtRefreshExpiration') as any,
             }),
@@ -105,19 +104,6 @@ export class AuthService {
         };
     }
 
-    async forgotPassword(email: string): Promise<boolean> {
-        const user = await this.usersService.findByEmail(email);
-        if (!user) throw new NotFoundException('User not found');
-
-        const token = await this.jwtService.signAsync(
-            { sub: user._id.toString(), email: user.email, type: 'recovery' },
-            { expiresIn: '1h' }
-        );
-
-        await this.mailService.sendForgotPasswordEmail(user.email, user.first_name, token);
-        return true;
-    }
-
     async googleLogin(idToken: string) {
         const googlePayload = await this.googleService.verifyToken(idToken);
         const email = googlePayload.email!;
@@ -127,6 +113,7 @@ export class AuthService {
         if (!user) {
             const userRole = await this.rolesService.findBySlug('user');
 
+            // FIX: Use 'role' to match the property defined in UsersService.createFromGoogle
             user = await this.usersService.createFromGoogle({
                 email: email,
                 first_name: googlePayload.given_name || 'User',

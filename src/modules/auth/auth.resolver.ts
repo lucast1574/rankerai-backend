@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql'; // Removed Query
+import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { Public } from '../../shared/decorators/public.decorator';
 import { UserEntity } from '../users/entities/user.entity';
