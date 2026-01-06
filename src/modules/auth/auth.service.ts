@@ -3,6 +3,7 @@ import {
     UnauthorizedException,
     ConflictException,
     BadRequestException,
+    NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -31,13 +32,16 @@ export class AuthService {
         if (existing) throw new ConflictException('User already exists');
 
         const hashedPassword = await hashPassword(input.password);
+
+        // Ensure default 'user' role exists in DB
         const userRole = await this.rolesService.findBySlug('user');
+        if (!userRole) throw new NotFoundException('Default user role not found in database');
 
         const user = await this.usersService.create({
             ...input,
             password_hash: hashedPassword,
             auth_provider: 'CREDENTIALS',
-            role: userRole?._id,
+            role: userRole._id,
         });
 
         const freePlan = await this.subscriptionsService.findPlanBySlug('free');
@@ -80,18 +84,20 @@ export class AuthService {
     }
 
     private async generateTokens(user: UserDocument) {
-        const roleSlug = user.role && typeof user.role === 'object' && 'slug' in user.role
-            ? (user.role as any).slug
-            : user.role;
+        const roleSlug = user.role && typeof user.role === 'object' ? (user.role as any).slug : 'user';
 
-        const payload = { sub: user._id.toString(), email: user.email, role: roleSlug };
+        const payload = {
+            sub: user._id.toString(),
+            email: user.email,
+            role: roleSlug
+        };
 
         const [accessToken, refreshToken] = await Promise.all([
-            this.jwtService.signAsync(payload as any, {
+            this.jwtService.signAsync(payload, {
                 secret: this.configService.getOrThrow<string>('auth.jwtSecret'),
                 expiresIn: this.configService.getOrThrow<string>('auth.jwtExpiration') as any,
             }),
-            this.jwtService.signAsync(payload as any, {
+            this.jwtService.signAsync(payload, {
                 secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
                 expiresIn: this.configService.getOrThrow<string>('auth.jwtRefreshExpiration') as any,
             }),
@@ -113,7 +119,6 @@ export class AuthService {
         if (!user) {
             const userRole = await this.rolesService.findBySlug('user');
 
-            // FIX: Use 'role' to match the property defined in UsersService.createFromGoogle
             user = await this.usersService.createFromGoogle({
                 email: email,
                 first_name: googlePayload.given_name || 'User',

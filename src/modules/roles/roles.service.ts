@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Role, RoleDocument } from './models/role.model';
@@ -8,23 +8,43 @@ import { UpdateRoleInput } from './dto/update-role.input';
 import { CreatePermissionInput } from './dto/create-permission.input';
 
 @Injectable()
-export class RolesService {
+export class RolesService implements OnModuleInit {
     constructor(
         @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
         @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
     ) { }
 
     /**
-     * Logic for RolesGuard to fetch dynamic permissions
+     * Seed basic roles on startup to ensure registration works
      */
+    async onModuleInit() {
+        const userRole = await this.roleModel.findOne({ slug: 'user' });
+        if (!userRole) {
+            await new this.roleModel({
+                name: 'User',
+                slug: 'user',
+                permissions: [],
+                active: true,
+                version: 1
+            }).save();
+        }
+
+        const adminRole = await this.roleModel.findOne({ slug: 'admin' });
+        if (!adminRole) {
+            await new this.roleModel({
+                name: 'Administrator',
+                slug: 'admin',
+                permissions: ['*'],
+                active: true,
+                version: 1
+            }).save();
+        }
+    }
+
     async getRoleWithPermissions(slug: string): Promise<RoleDocument | null> {
         return this.roleModel.findOne({ slug, active: true }).exec();
     }
 
-    /**
-     * Finds a role by its unique slug.
-     * Required for assigning default roles during registration.
-     */
     async findBySlug(slug: string): Promise<RoleDocument> {
         const role = await this.roleModel.findOne({ slug, active: true }).exec();
         if (!role) {

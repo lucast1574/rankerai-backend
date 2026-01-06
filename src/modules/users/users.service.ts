@@ -34,7 +34,8 @@ export class UsersService {
             ...data,
             is_registered: data.is_registered ?? true,
         });
-        return newUser.save();
+        const saved = await newUser.save();
+        return saved.populate('role');
     }
 
     async createFromGoogle(payload: {
@@ -49,7 +50,8 @@ export class UsersService {
             is_registered: true,
             active: true,
         });
-        return newUser.save();
+        const saved = await newUser.save();
+        return saved.populate('role');
     }
 
     async update(id: string, updateUserInput: UpdateUserInput): Promise<UserDocument> {
