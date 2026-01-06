@@ -1,11 +1,12 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsUppercase } from 'class-validator';
+import { IsNotEmpty, IsString, IsUppercase, MinLength } from 'class-validator';
 
 @InputType()
 export class CreatePermissionInput {
     @Field()
     @IsNotEmpty()
     @IsString()
+    @MinLength(3)
     name!: string;
 
     @Field()

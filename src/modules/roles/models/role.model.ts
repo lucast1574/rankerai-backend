@@ -25,7 +25,6 @@ export class Role {
     @Prop({ default: true, index: true })
     active!: boolean;
 
-    /** AUDIT FIELDS (Matching backup logic) */
     @Prop({ type: Types.ObjectId, ref: 'User', index: true })
     created_by?: Types.ObjectId;
 

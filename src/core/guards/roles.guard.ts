@@ -2,42 +2,53 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { ROLES_KEY } from '../../shared/decorators/roles.decorator';
-import { Role as RoleEnum } from '../../modules/roles/enums/role.enum';
+import { RolesService } from '../../modules/roles/roles.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-    constructor(private reflector: Reflector) { }
+    constructor(
+        private reflector: Reflector,
+        private rolesService: RolesService,
+    ) { }
 
-    canActivate(context: ExecutionContext): boolean {
-        const requiredRoles = this.reflector.getAllAndOverride<RoleEnum[]>(ROLES_KEY, [
+    async canActivate(context: ExecutionContext): Promise<boolean> {
+        // Now decorator values are strings (e.g., @Roles('admin') or @Roles('PROJECT_CREATE'))
+        const requiredPermissions = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
             context.getHandler(),
             context.getClass(),
         ]);
 
-        if (!requiredRoles) {
+        if (!requiredPermissions || requiredPermissions.length === 0) {
             return true;
         }
 
         const ctx = GqlExecutionContext.create(context);
-        const req = ctx.getContext().req;
+        const { req } = ctx.getContext();
         const user = req.user;
 
         if (!user || !user.active) {
             return false;
         }
 
-        let userRoleSlug: string | undefined;
+        // Identify user role slug from the request (populated by JwtStrategy)
+        const userRoleSlug = typeof user.role === 'object' ? user.role.slug : user.role;
 
-        if (user.role && typeof user.role === 'object' && 'slug' in user.role) {
-            userRoleSlug = (user.role as { slug: string }).slug;
-        } else if (typeof user.role === 'string') {
-            userRoleSlug = user.role;
+        if (!userRoleSlug) return false;
+
+        // Fetch dynamic permissions from the Database
+        const dbRole = await this.rolesService.getRoleWithPermissions(userRoleSlug);
+
+        if (!dbRole) {
+            throw new ForbiddenException('User role not found in database');
         }
 
-        const hasRole = requiredRoles.some((role) => userRoleSlug === role);
+        // Logic: Return true if user is 'admin' OR has ALL required permissions
+        const hasPermission = requiredPermissions.every(permission =>
+            dbRole.slug === 'admin' || dbRole.permissions.includes(permission)
+        );
 
-        if (!hasRole) {
-            throw new ForbiddenException('You do not have the required permissions to access this resource');
+        if (!hasPermission) {
+            throw new ForbiddenException('Insufficient database-defined permissions');
         }
 
         return true;

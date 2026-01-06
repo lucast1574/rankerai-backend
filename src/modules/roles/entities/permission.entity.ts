@@ -15,5 +15,11 @@ export class PermissionEntity {
     module!: string;
 
     @Field({ nullable: true })
-    createdAt?: Date;
+    created_at?: Date; // Matches schema 'created_at'
+
+    @Field({ nullable: true })
+    updated_at?: Date; // Added for consistency
+
+    @Field(() => ID, { nullable: true })
+    created_by?: string;
 }

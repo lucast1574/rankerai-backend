@@ -22,14 +22,12 @@ async function bootstrap() {
         }),
     );
 
-    // FIX: Added await to the listen call to resolve the unawaited promise error
     await app.listen(port);
 
     logger.log(`🚀 Server is running on: http://localhost:${port}/graphql`);
     logger.log(`🌍 Environment: ${environment}`);
 }
 
-// FIX: Added .catch() to the bootstrap call to handle potential initialization errors
 bootstrap().catch((err) => {
     console.error('Error starting application', err);
     process.exit(1);

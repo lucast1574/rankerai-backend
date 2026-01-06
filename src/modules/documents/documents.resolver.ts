@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, ResolveField, Parent } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ResolveField, Parent, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentEntity } from './entities/document.entity';
@@ -10,34 +10,30 @@ import { CreateDocumentStatusInput } from './dto/create-document-status.input';
 import { CreateDocumentTypeInput } from './dto/create-document-type.input';
 import { GqlAuthGuard } from '../../core/guards/auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
+import { ProjectOwnershipGuard } from '../../core/guards/project-ownership.guard'; // Critical security fix
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
-
-// Note: We import the Class 'Document' to avoid the 'isolatedModules' metadata error
 import { Document } from './models/document.model';
 
 @Resolver(() => DocumentEntity)
 export class DocumentsResolver {
     constructor(private readonly documentsService: DocumentsService) { }
 
-    // --- Field Resolvers (Populate references dynamically) ---
-
-    @ResolveField('status', () => DocumentStatusEntity)
+    @ResolveField('status', () => DocumentStatusEntity, { nullable: true })
     async getStatus(@Parent() document: Document) {
-        // We cast to any or use the ID property directly from the parent
         const doc = document as any;
+        if (!doc.status_id) return null;
         return this.documentsService.findStatusById(doc.status_id.toString());
     }
 
-    @ResolveField('type', () => DocumentTypeEntity)
+    @ResolveField('type', () => DocumentTypeEntity, { nullable: true })
     async getType(@Parent() document: Document) {
         const doc = document as any;
+        if (!doc.type_id) return null;
         return this.documentsService.findTypeById(doc.type_id.toString());
     }
 
-    // --- User Operations ---
-
-    @UseGuards(GqlAuthGuard)
+    @UseGuards(GqlAuthGuard, ProjectOwnershipGuard)
     @Mutation(() => DocumentEntity)
     async createDocument(
         @Args('input') input: CreateDocumentInput,
@@ -46,7 +42,7 @@ export class DocumentsResolver {
         return this.documentsService.create(input, user.id);
     }
 
-    @UseGuards(GqlAuthGuard)
+    @UseGuards(GqlAuthGuard, ProjectOwnershipGuard)
     @Query(() => [DocumentEntity], { name: 'getDocuments' })
     async getDocuments(
         @Args('filter', { nullable: true }) filter: DocumentFilterInput,
@@ -58,13 +54,11 @@ export class DocumentsResolver {
     @UseGuards(GqlAuthGuard)
     @Query(() => DocumentEntity, { name: 'getDocument' })
     async getDocument(
-        @Args('id') id: string,
+        @Args('id', { type: () => ID }) id: string,
         @CurrentUser() user: any
     ) {
         return this.documentsService.findOne(id, user.id);
     }
-
-    // --- Admin Operations (System Constants) ---
 
     @UseGuards(GqlAuthGuard, RolesGuard)
     @Roles('admin')

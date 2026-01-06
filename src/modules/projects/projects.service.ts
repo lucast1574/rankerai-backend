@@ -12,11 +12,10 @@ export class ProjectsService {
     ) { }
 
     async create(input: CreateProjectInput, ownerId: string): Promise<ProjectDocument> {
-        // Generate slug from name if not provided
         const slug = input.slug || input.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
 
-        // Check for slug collision
-        const existing = await this.projectModel.findOne({ slug });
+        // Collision check only against active projects
+        const existing = await this.projectModel.findOne({ slug, active: true });
         if (existing) throw new ConflictException('A project with this slug already exists');
 
         const newProject = new this.projectModel({
@@ -37,7 +36,10 @@ export class ProjectsService {
     }
 
     async findOne(id: string, ownerId: string): Promise<ProjectDocument> {
-        const project = await this.projectModel.findById(id);
+        const project = await this.projectModel.findOne({
+            _id: new Types.ObjectId(id),
+            active: true
+        });
 
         if (!project) throw new NotFoundException('Project not found');
         if (project.owner_id.toString() !== ownerId) {
@@ -48,10 +50,7 @@ export class ProjectsService {
     }
 
     async update(id: string, input: UpdateProjectInput, ownerId: string): Promise<ProjectDocument> {
-        const project = await this.findOne(id, ownerId); // Reuses ownership check
-
-        // If name changes and slug isn't provided, we don't automatically change the slug 
-        // to avoid breaking existing links, unless explicitly requested.
+        const project = await this.findOne(id, ownerId);
 
         Object.assign(project, {
             ...input,
@@ -63,7 +62,6 @@ export class ProjectsService {
 
     async remove(id: string, ownerId: string): Promise<boolean> {
         const project = await this.findOne(id, ownerId);
-        // Soft delete
         project.active = false;
         await project.save();
         return true;

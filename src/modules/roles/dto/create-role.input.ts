@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsArray, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsArray, IsOptional, IsLowercase } from 'class-validator';
 
 @InputType()
 export class CreateRoleInput {
@@ -11,6 +11,7 @@ export class CreateRoleInput {
     @Field()
     @IsNotEmpty()
     @IsString()
+    @IsLowercase()
     slug!: string;
 
     @Field({ nullable: true })
