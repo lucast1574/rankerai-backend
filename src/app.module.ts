@@ -11,6 +11,9 @@ import { RolesModule } from './modules/roles/roles.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
+import { LanguagesModule } from './modules/languages/languages.module';
+import { LocationsModule } from './modules/locations/locations.module';
 
 // Shared Modules
 import { EmailModule } from './shared/email/email.module';
@@ -38,6 +41,9 @@ import { GoogleModule } from './shared/google/google.module';
         SubscriptionsModule,
         ProjectsModule,
         DocumentsModule,
+        ContactsModule,
+        LanguagesModule,
+        LocationsModule,
     ],
 })
 export class AppModule { }
