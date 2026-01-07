@@ -13,10 +13,89 @@ type AuthResponse {
   user: UserEntity!
 }
 
+"""Contact information submitted via support/contact forms"""
+type ContactEntity {
+  createdAt: DateTime!
+  email: String!
+  id: ID!
+  message: String!
+  name: String!
+  reason: String!
+  updatedAt: DateTime!
+}
+
+"""Filters for querying contact submissions"""
+input ContactFilterInput {
+  email: String
+  name: String
+  reason: String
+
+  """Search term for the message content"""
+  searchTerm: String
+}
+
+"""Data required to create a new contact entry"""
+input CreateContactInput {
+  """Email address for response"""
+  email: String!
+
+  """Detailed message or inquiry"""
+  message: String!
+
+  """Full name of the person"""
+  name: String!
+
+  """Reason for contacting support"""
+  reason: String!
+}
+
+input CreateDocumentInput {
+  content: JSON!
+  project_id: ID!
+  status_slug: String
+  title: String!
+  type_slug: String!
+}
+
+input CreateDocumentStatusInput {
+  active: Boolean
+  name: String!
+  slug: String!
+}
+
+input CreateDocumentTypeInput {
+  active: Boolean
+  name: String!
+  slug: String!
+}
+
+"""Data to create a new supported language"""
+input CreateLanguageInput {
+  active: Boolean
+  locale: String!
+  name: String!
+}
+
+"""Data to create a new geographical location"""
+input CreateLocationInput {
+  active: Boolean
+  country: String!
+  name: String!
+  postal_code: String
+  region: String
+}
+
 input CreatePermissionInput {
   code: String!
   module: String!
   name: String!
+}
+
+input CreateProjectInput {
+  description: String
+  metadata: String
+  name: String!
+  slug: String
 }
 
 input CreateRoleInput {
@@ -31,10 +110,69 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type DocumentEntity {
+  _id: ID!
+  content: JSON!
+  created_on: DateTime!
+  owner_id: ID!
+  project_id: ID!
+  status: DocumentStatusEntity
+  status_id: ID!
+  title: String!
+  type: DocumentTypeEntity
+  type_id: ID!
+  updated_on: DateTime!
+  version: Int!
+}
+
+input DocumentFilterInput {
+  project_id: ID
+  status_slug: String
+  type_slug: String
+}
+
+type DocumentStatusEntity {
+  _id: ID!
+  active: Boolean!
+  name: String!
+  slug: String!
+}
+
+type DocumentTypeEntity {
+  _id: ID!
+  active: Boolean!
+  name: String!
+  slug: String!
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
 scalar JSON
+
+"""Supported application language"""
+type LanguageEntity {
+  active: Boolean!
+  createdAt: DateTime!
+  id: ID!
+  locale: String!
+  name: String!
+  updatedAt: DateTime!
+  version: Float!
+}
+
+"""Geographical location data"""
+type LocationEntity {
+  active: Boolean!
+  country: String!
+  createdAt: DateTime!
+  id: ID!
+  name: String!
+  postal_code: String
+  region: String
+  updatedAt: DateTime!
+  version: Float!
+}
 
 input LoginInput {
   email: String!
@@ -42,8 +180,21 @@ input LoginInput {
 }
 
 type Mutation {
+  """Public endpoint to submit a contact inquiry"""
+  createContact(createContactInput: CreateContactInput!): ContactEntity!
+  createDocument(input: CreateDocumentInput!): DocumentEntity!
+
+  """Create a new language (Admin only)"""
+  createLanguage(createLanguageInput: CreateLanguageInput!): LanguageEntity!
+
+  """Create a new location entry (Admin only)"""
+  createLocation(createLocationInput: CreateLocationInput!): LocationEntity!
   createPermission(input: CreatePermissionInput!): PermissionEntity!
+  createProject(input: CreateProjectInput!): ProjectEntity!
   createRole(input: CreateRoleInput!): RoleEntity!
+  createSystemDocumentStatus(input: CreateDocumentStatusInput!): DocumentStatusEntity!
+  createSystemDocumentType(input: CreateDocumentTypeInput!): DocumentTypeEntity!
+  deleteProject(id: ID!): Boolean!
 
   """Send reset password email"""
   forgotPassword(email: String!): Boolean!
@@ -57,24 +208,84 @@ type Mutation {
   """Register a new user"""
   register(input: RegisterInput!): UserEntity!
 
+  """Delete a contact submission (Admin only)"""
+  removeContact(id: ID!): Boolean!
+
+  """Remove a language (Admin only)"""
+  removeLanguage(id: ID!): Boolean!
+
+  """Remove a location entry (Admin only)"""
+  removeLocation(id: ID!): Boolean!
+
   """Authenticate via Google ID Token"""
   signInWithGoogle(idToken: String!): AuthResponse!
   testConsumeCredit(amount: Float!, type: String!): Boolean!
+
+  """Update a contact entry status or details (Admin only)"""
+  updateContact(updateContactInput: UpdateContactInput!): ContactEntity!
+
+  """Update language details (Admin only)"""
+  updateLanguage(updateLanguageInput: UpdateLanguageInput!): LanguageEntity!
+
+  """Update location details (Admin only)"""
+  updateLocation(updateLocationInput: UpdateLocationInput!): LocationEntity!
   updateMe(input: UpdateUserInput!): UserEntity!
+  updateProject(input: UpdateProjectInput!): ProjectEntity!
+  updateRole(input: UpdateRoleInput!): RoleEntity!
 }
 
 type PermissionEntity {
   _id: ID!
   code: String!
-  createdAt: DateTime
+  created_at: DateTime
+  created_by: ID
   module: String!
   name: String!
+  updated_at: DateTime
+}
+
+type ProjectEntity {
+  _id: ID!
+  active: Boolean!
+  created_on: DateTime!
+  description: String
+  metadata: JSON
+  name: String!
+  owner_id: ID!
+  slug: String!
+  updated_on: DateTime!
+  version: Int!
 }
 
 type Query {
   availablePlans: [SubscriptionPlanEntity!]!
   checkFeatureAccess(currentCount: Int!, featureKey: String!): Boolean!
+
+  """Retrieve a specific contact entry by ID (Admin only)"""
+  contact(id: ID!): ContactEntity!
+
+  """Retrieve all contact submissions (Admin only)"""
+  contacts(filter: ContactFilterInput): [ContactEntity!]!
   findAllUsers: [UserEntity!]!
+  getAvailableDocumentStatuses: [DocumentStatusEntity!]!
+  getAvailableDocumentTypes: [DocumentTypeEntity!]!
+  getDocument(id: ID!): DocumentEntity!
+  getDocuments(filter: DocumentFilterInput): [DocumentEntity!]!
+  getMyProjects: [ProjectEntity!]!
+  getProject(id: ID!): ProjectEntity!
+
+  """Get a specific language by ID"""
+  language(id: ID!): LanguageEntity!
+
+  """Get all supported languages"""
+  languages(onlyActive: Boolean! = false): [LanguageEntity!]!
+
+  """Get a specific location by ID"""
+  location(id: ID!): LocationEntity!
+
+  """Get all available geographical locations"""
+  locations(onlyActive: Boolean! = false): [LocationEntity!]!
+  me: UserEntity!
   myCreditBalance: UserCreditEntity!
   mySubscription: UserSubscriptionEntity!
   permissions: [PermissionEntity!]!
@@ -113,11 +324,65 @@ type SubscriptionPlanEntity {
   version: Int!
 }
 
+"""Data required to update an existing contact entry"""
+input UpdateContactInput {
+  """Email address for response"""
+  email: String
+
+  """The unique ID of the contact to update"""
+  id: ID!
+
+  """Detailed message or inquiry"""
+  message: String
+
+  """Full name of the person"""
+  name: String
+
+  """Reason for contacting support"""
+  reason: String
+}
+
+"""Data to update an existing language"""
+input UpdateLanguageInput {
+  active: Boolean
+  id: ID!
+  locale: String
+  name: String
+}
+
+"""Data to update an existing location"""
+input UpdateLocationInput {
+  active: Boolean
+  country: String
+  id: ID!
+  name: String
+  postal_code: String
+  region: String
+}
+
+input UpdateProjectInput {
+  _id: ID!
+  description: String
+  metadata: String
+  name: String
+  slug: String
+}
+
+input UpdateRoleInput {
+  _id: ID!
+  description: String
+  name: String
+  permissions: [String!] = []
+  slug: String
+}
+
 input UpdateUserInput {
   email: String
   first_name: String
   last_name: String
   password: String
+  reset_password_expires: DateTime
+  reset_password_token: String
   sitemap_url: String
   work_pattern: String
 }
@@ -164,6 +429,8 @@ type UserEntity {
   locked: Boolean!
   no_of_login: Int!
   parent_id: ID
+  reset_password_expires: DateTime
+  reset_password_token: String
   role: RoleEntity
   sitemap_url: String
   updated_by: ID

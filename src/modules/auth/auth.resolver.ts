@@ -54,6 +54,6 @@ export class AuthResolver {
     @Public()
     @Mutation(() => Boolean, { description: 'Send reset password email' })
     async forgotPassword(@Args('email') email: string): Promise<boolean> {
-        return this.authService.forgotPassword(email);
+        return await this.authService.forgotPassword(email);
     }
 }

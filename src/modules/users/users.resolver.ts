@@ -30,4 +30,9 @@ export class UsersResolver {
         const users = await this.usersService.findAll();
         return users.map(user => UserMapper.toEntity(user));
     }
+
+    @Query(() => UserEntity, { name: 'me' })
+    getMe(@CurrentUser() user: UserDocument): UserEntity {
+        return UserMapper.toEntity(user);
+    }
 }

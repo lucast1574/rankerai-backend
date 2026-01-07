@@ -42,7 +42,7 @@ export class UserEntity {
     @Field({ defaultValue: false })
     is_registered!: boolean;
 
-    @Field(() => RoleEntity, { nullable: true }) // Returns the full Role object
+    @Field(() => RoleEntity, { nullable: true })
     role?: RoleEntity;
 
     @Field(() => ID, { nullable: true })
@@ -71,6 +71,13 @@ export class UserEntity {
 
     @Field({ defaultValue: false })
     allow_free_trial!: boolean;
+
+    // Added Password Reset Fields
+    @Field({ nullable: true })
+    reset_password_token?: string;
+
+    @Field(() => Date, { nullable: true })
+    reset_password_expires?: Date;
 
     @Field(() => Date)
     created_on!: Date;

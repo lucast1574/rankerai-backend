@@ -1,6 +1,6 @@
 import { InputType, Field, PartialType } from '@nestjs/graphql';
 import { RegisterUserInput } from './register-user.input';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsDate } from 'class-validator';
 
 @InputType()
 export class UpdateUserInput extends PartialType(RegisterUserInput) {
@@ -13,4 +13,14 @@ export class UpdateUserInput extends PartialType(RegisterUserInput) {
     @IsOptional()
     @IsString()
     sitemap_url?: string;
+
+    @Field({ nullable: true })
+    @IsOptional()
+    @IsString()
+    reset_password_token?: string;
+
+    @Field(() => Date, { nullable: true })
+    @IsOptional()
+    @IsDate()
+    reset_password_expires?: Date;
 }

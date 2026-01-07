@@ -5,6 +5,7 @@ import { DocumentsResolver } from './documents.resolver';
 import { Document, DocumentSchema } from './models/document.model';
 import { DocumentStatus, DocumentStatusSchema } from './models/document-status.model';
 import { DocumentType, DocumentTypeSchema } from './models/document-type.model';
+import { ProjectsModule } from '../projects/projects.module';
 
 @Module({
     imports: [
@@ -13,8 +14,9 @@ import { DocumentType, DocumentTypeSchema } from './models/document-type.model';
             { name: DocumentStatus.name, schema: DocumentStatusSchema },
             { name: DocumentType.name, schema: DocumentTypeSchema },
         ]),
+        ProjectsModule,
     ],
     providers: [DocumentsService, DocumentsResolver],
-    exports: [DocumentsService], // Exported for use in ProjectsModule if needed
+    exports: [DocumentsService],
 })
 export class DocumentsModule { }

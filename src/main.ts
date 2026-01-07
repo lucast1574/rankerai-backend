@@ -19,7 +19,7 @@ async function bootstrap() {
 
     const configService = app.get(ConfigService);
     const port = configService.get<number>('app.port') || 3000;
-    const environment = configService.get<string>('app.env');
+    const environment = configService.get<string>('app.nodeEnv');
     const frontendUrl = configService.get<string>('app.frontendUrl');
 
     app.enableCors({

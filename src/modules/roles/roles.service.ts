@@ -15,29 +15,43 @@ export class RolesService implements OnModuleInit {
     ) { }
 
     /**
-     * Seed basic roles on startup to ensure registration works
+     * Seed basic roles on startup to ensure registration works.
+     * Manually assigning Types.ObjectId() ensures Mongoose satisfies internal 
+     * validation before the database driver handles the save.
      */
     async onModuleInit() {
-        const userRole = await this.roleModel.findOne({ slug: 'user' });
-        if (!userRole) {
-            await new this.roleModel({
-                name: 'User',
-                slug: 'user',
-                permissions: [],
-                active: true,
-                version: 1
-            }).save();
-        }
+        try {
+            const userRole = await this.roleModel.findOne({ slug: 'user' });
+            if (!userRole) {
+                const newUserRole = new this.roleModel({
+                    _id: new Types.ObjectId(),
+                    name: 'User',
+                    slug: 'user',
+                    permissions: [],
+                    active: true,
+                    version: 1,
+                });
+                await newUserRole.save();
+                console.log('✅ Default "user" role seeded');
+            }
 
-        const adminRole = await this.roleModel.findOne({ slug: 'admin' });
-        if (!adminRole) {
-            await new this.roleModel({
-                name: 'Administrator',
-                slug: 'admin',
-                permissions: ['*'],
-                active: true,
-                version: 1
-            }).save();
+            const adminRole = await this.roleModel.findOne({ slug: 'admin' });
+            if (!adminRole) {
+                const newAdminRole = new this.roleModel({
+                    _id: new Types.ObjectId(),
+                    name: 'Administrator',
+                    slug: 'admin',
+                    permissions: ['*'],
+                    active: true,
+                    version: 1,
+                });
+                await newAdminRole.save();
+                console.log('✅ Default "admin" role seeded');
+            }
+        } catch (error: unknown) {
+            // Narrow the type to access the message safely
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error('⚠️ Error seeding roles:', errorMessage);
         }
     }
 
@@ -61,11 +75,13 @@ export class RolesService implements OnModuleInit {
         const existing = await this.roleModel.findOne({ slug: data.slug });
         if (existing) throw new ConflictException(`Role slug "${data.slug}" exists`);
 
-        return new this.roleModel({
+        const role = new this.roleModel({
             ...data,
+            _id: new Types.ObjectId(),
             created_by: new Types.ObjectId(adminId),
             active: true,
-        }).save();
+        });
+        return role.save();
     }
 
     async updateRole(id: string, data: UpdateRoleInput, adminId: string): Promise<RoleDocument> {
@@ -84,10 +100,12 @@ export class RolesService implements OnModuleInit {
         const existing = await this.permissionModel.findOne({ code: data.code });
         if (existing) throw new ConflictException(`Permission code "${data.code}" exists`);
 
-        return new this.permissionModel({
+        const permission = new this.permissionModel({
             ...data,
+            _id: new Types.ObjectId(),
             created_by: new Types.ObjectId(adminId),
-        }).save();
+        });
+        return permission.save();
     }
 
     async findAllPermissions(): Promise<PermissionDocument[]> {

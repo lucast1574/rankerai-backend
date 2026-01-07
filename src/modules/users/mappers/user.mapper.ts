@@ -31,6 +31,10 @@ export class UserMapper {
         entity.created_by = doc.created_by?.toString();
         entity.updated_by = doc.updated_by?.toString();
 
+        // Mapping new Password Reset Fields
+        entity.reset_password_token = doc.reset_password_token;
+        entity.reset_password_expires = doc.reset_password_expires;
+
         entity.created_on = (doc as any).created_on;
         entity.updated_on = (doc as any).updated_on;
 

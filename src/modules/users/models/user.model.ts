@@ -75,6 +75,13 @@ export class User {
 
     @Prop({ default: false, index: true })
     allow_free_trial!: boolean;
+
+    // Password Reset Fields
+    @Prop({ index: true, sparse: true })
+    reset_password_token?: string;
+
+    @Prop()
+    reset_password_expires?: Date;
 }
 
 export type UserDocument = HydratedDocument<User>;

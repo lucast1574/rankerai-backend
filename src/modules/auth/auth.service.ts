@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { RolesService } from '../roles/roles.service';
@@ -32,10 +33,8 @@ export class AuthService {
         if (existing) throw new ConflictException('User already exists');
 
         const hashedPassword = await hashPassword(input.password);
-
-        // Ensure default 'user' role exists in DB
         const userRole = await this.rolesService.findBySlug('user');
-        if (!userRole) throw new NotFoundException('Default user role not found in database');
+        if (!userRole) throw new NotFoundException('Default user role not found');
 
         const user = await this.usersService.create({
             ...input,
@@ -56,10 +55,7 @@ export class AuthService {
     async login(input: any) {
         const user = await this.usersService.findByEmail(input.email);
         if (!user) throw new UnauthorizedException('Invalid credentials');
-
-        if (user.auth_provider === 'GOOGLE') {
-            throw new BadRequestException('Your account is registered with Google');
-        }
+        if (user.auth_provider === 'GOOGLE') throw new BadRequestException('Use Google Login');
 
         if (!user.password_hash || !(await verifyPassword(input.password, user.password_hash))) {
             throw new UnauthorizedException('Invalid credentials');
@@ -69,6 +65,16 @@ export class AuthService {
         return this.generateTokens(user);
     }
 
+    async forgotPassword(email: string): Promise<boolean> {
+        const user = await this.usersService.findByEmail(email);
+        if (user && user.active) {
+            const resetToken = randomBytes(32).toString('hex');
+            await this.usersService.setResetToken(user._id, resetToken);
+            await this.mailService.sendForgotPasswordEmail(user.email, user.first_name, resetToken);
+        }
+        return true;
+    }
+
     async refreshToken(token: string) {
         try {
             const payload = await this.jwtService.verifyAsync(token, {
@@ -76,7 +82,6 @@ export class AuthService {
             });
             const user = await this.usersService.findById(payload.sub);
             if (!user || !user.active) throw new UnauthorizedException();
-
             return this.generateTokens(user);
         } catch {
             throw new UnauthorizedException('Invalid refresh token');
@@ -85,12 +90,7 @@ export class AuthService {
 
     private async generateTokens(user: UserDocument) {
         const roleSlug = user.role && typeof user.role === 'object' ? (user.role as any).slug : 'user';
-
-        const payload = {
-            sub: user._id.toString(),
-            email: user.email,
-            role: roleSlug
-        };
+        const payload = { sub: user._id.toString(), email: user.email, role: roleSlug };
 
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, {
@@ -103,37 +103,26 @@ export class AuthService {
             }),
         ]);
 
-        return {
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            user,
-        };
+        return { access_token: accessToken, refresh_token: refreshToken, user };
     }
 
     async googleLogin(idToken: string) {
         const googlePayload = await this.googleService.verifyToken(idToken);
         const email = googlePayload.email!;
-
         let user = await this.usersService.findByEmail(email);
 
         if (!user) {
             const userRole = await this.rolesService.findBySlug('user');
-
             user = await this.usersService.createFromGoogle({
-                email: email,
+                email,
                 first_name: googlePayload.given_name || 'User',
                 last_name: googlePayload.family_name || '',
                 role: userRole?._id,
             });
-
             const freePlan = await this.subscriptionsService.findPlanBySlug('free');
-            if (freePlan) {
-                await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
-            }
-
+            if (freePlan) await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
             await this.mailService.sendWelcomeEmail(user.email, user.first_name);
         }
-
         return this.generateTokens(user);
     }
 }
