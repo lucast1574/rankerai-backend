@@ -10,12 +10,13 @@ import { CreateDocumentStatusInput } from './dto/create-document-status.input';
 import { CreateDocumentTypeInput } from './dto/create-document-type.input';
 import { GqlAuthGuard } from '../../core/guards/auth.guard';
 import { RolesGuard } from '../../core/guards/roles.guard';
-import { ProjectOwnershipGuard } from '../../core/guards/project-ownership.guard'; // Critical security fix
+import { ProjectOwnershipGuard } from '../../core/guards/project-ownership.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { CurrentUser } from '../../shared/decorators/current-user.decorator';
 import { Document } from './models/document.model';
 
 @Resolver(() => DocumentEntity)
+@UseGuards(GqlAuthGuard, RolesGuard)
 export class DocumentsResolver {
     constructor(private readonly documentsService: DocumentsService) { }
 
@@ -33,43 +34,43 @@ export class DocumentsResolver {
         return this.documentsService.findTypeById(doc.type_id.toString());
     }
 
-    @UseGuards(GqlAuthGuard, ProjectOwnershipGuard)
+    @UseGuards(ProjectOwnershipGuard)
     @Mutation(() => DocumentEntity)
+    @Roles('DOCUMENT_CREATE')
     async createDocument(
         @Args('input') input: CreateDocumentInput,
         @CurrentUser() user: any
     ) {
-        return this.documentsService.create(input, user.id);
+        return this.documentsService.create(input, user._id?.toString() || user.id);
     }
 
-    @UseGuards(GqlAuthGuard, ProjectOwnershipGuard)
+    @UseGuards(ProjectOwnershipGuard)
     @Query(() => [DocumentEntity], { name: 'getDocuments' })
+    @Roles('DOCUMENT_VIEW')
     async getDocuments(
         @Args('filter', { nullable: true }) filter: DocumentFilterInput,
         @CurrentUser() user: any
     ) {
-        return this.documentsService.findAll(filter || {}, user.id);
+        return this.documentsService.findAll(filter || {}, user._id?.toString() || user.id);
     }
 
-    @UseGuards(GqlAuthGuard)
     @Query(() => DocumentEntity, { name: 'getDocument' })
+    @Roles('DOCUMENT_VIEW')
     async getDocument(
         @Args('id', { type: () => ID }) id: string,
         @CurrentUser() user: any
     ) {
-        return this.documentsService.findOne(id, user.id);
+        return this.documentsService.findOne(id, user._id?.toString() || user.id);
     }
 
-    @UseGuards(GqlAuthGuard, RolesGuard)
-    @Roles('admin')
     @Mutation(() => DocumentTypeEntity)
+    @Roles('admin')
     async createSystemDocumentType(@Args('input') input: CreateDocumentTypeInput) {
         return this.documentsService.createType(input);
     }
 
-    @UseGuards(GqlAuthGuard, RolesGuard)
-    @Roles('admin')
     @Mutation(() => DocumentStatusEntity)
+    @Roles('admin')
     async createSystemDocumentStatus(@Args('input') input: CreateDocumentStatusInput) {
         return this.documentsService.createStatus(input);
     }

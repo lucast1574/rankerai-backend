@@ -28,7 +28,8 @@ export class RolesResolver {
         @Args('input') input: CreateRoleInput,
         @CurrentUser() admin: any,
     ) {
-        return this.rolesService.createRole(input, admin.id || admin._id);
+        // Standardized to use Mongoose _id
+        return this.rolesService.createRole(input, admin._id?.toString() || admin.id);
     }
 
     @Mutation(() => RoleEntity)
@@ -37,7 +38,7 @@ export class RolesResolver {
         @Args('input') input: UpdateRoleInput,
         @CurrentUser() admin: any,
     ) {
-        return this.rolesService.updateRole(input._id, input, admin.id || admin._id);
+        return this.rolesService.updateRole(input._id, input, admin._id?.toString() || admin.id);
     }
 
     @Query(() => [PermissionEntity], { name: 'permissions' })
@@ -52,6 +53,6 @@ export class RolesResolver {
         @Args('input') input: CreatePermissionInput,
         @CurrentUser() admin: any
     ) {
-        return this.rolesService.createPermission(input, admin.id || admin._id);
+        return this.rolesService.createPermission(input, admin._id?.toString() || admin.id);
     }
 }

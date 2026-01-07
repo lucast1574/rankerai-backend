@@ -11,15 +11,17 @@ export class ProjectOwnershipGuard implements CanActivate {
         const { req } = ctx.getContext();
         const user = req.user;
 
-        // Extract project_id from arguments (works for createDocument or filters)
+        if (!user) return false;
+
+        // Extract project_id from arguments
         const args = ctx.getArgs();
         const projectId = args.input?.project_id || args.filter?.project_id || args.project_id;
 
-        if (!projectId) return true; // If no project is referenced, skip check
+        if (!projectId) return true;
 
         try {
-            // Re-uses the service logic which already checks ownership
-            await this.projectsService.findOne(projectId, user.id);
+            // FIX: Use user._id.toString() to match your Mongoose document and service signature
+            await this.projectsService.findOne(projectId, user._id.toString());
             return true;
         } catch (error) {
             if (error instanceof NotFoundException) throw new NotFoundException('Target project not found');
