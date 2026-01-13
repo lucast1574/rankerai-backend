@@ -45,7 +45,10 @@ export class AuthService {
 
         const freePlan = await this.subscriptionsService.findPlanBySlug('free');
         if (freePlan) {
-            await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
+            await this.subscriptionsService.createInitialSubscription(
+                user._id.toString(),
+                freePlan._id.toString(),
+            );
         }
 
         await this.mailService.sendWelcomeEmail(user.email, user.first_name);
@@ -55,9 +58,13 @@ export class AuthService {
     async login(input: any) {
         const user = await this.usersService.findByEmail(input.email);
         if (!user) throw new UnauthorizedException('Invalid credentials');
-        if (user.auth_provider === 'GOOGLE') throw new BadRequestException('Use Google Login');
+        if (user.auth_provider === 'GOOGLE')
+            throw new BadRequestException('Use Google Login');
 
-        if (!user.password_hash || !(await verifyPassword(input.password, user.password_hash))) {
+        if (
+            !user.password_hash ||
+            !(await verifyPassword(input.password, user.password_hash))
+        ) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
@@ -70,7 +77,11 @@ export class AuthService {
         if (user && user.active) {
             const resetToken = randomBytes(32).toString('hex');
             await this.usersService.setResetToken(user._id, resetToken);
-            await this.mailService.sendForgotPasswordEmail(user.email, user.first_name, resetToken);
+            await this.mailService.sendForgotPasswordEmail(
+                user.email,
+                user.first_name,
+                resetToken,
+            );
         }
         return true;
     }
@@ -89,21 +100,41 @@ export class AuthService {
     }
 
     private async generateTokens(user: UserDocument) {
-        const roleSlug = user.role && typeof user.role === 'object' ? (user.role as any).slug : 'user';
-        const payload = { sub: user._id.toString(), email: user.email, role: roleSlug };
+        const roleSlug =
+            user.role && typeof user.role === 'object'
+                ? (user.role as any).slug
+                : 'user';
+        const payload = {
+            sub: user._id.toString(),
+            email: user.email,
+            role: roleSlug,
+        };
+
+        const accessTokenExp = this.configService.getOrThrow<string>('auth.jwtExpiration');
 
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, {
                 secret: this.configService.getOrThrow<string>('auth.jwtSecret'),
-                expiresIn: this.configService.getOrThrow<string>('auth.jwtExpiration') as any,
+                expiresIn: accessTokenExp as any,
             }),
             this.jwtService.signAsync(payload, {
                 secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
-                expiresIn: this.configService.getOrThrow<string>('auth.jwtRefreshExpiration') as any,
+                expiresIn: this.configService.getOrThrow<string>(
+                    'auth.jwtRefreshExpiration',
+                ) as any,
             }),
         ]);
 
-        return { access_token: accessToken, refresh_token: refreshToken, user };
+        // Calculate expiration timestamp (Current time + seconds from config)
+        const expires_token = Math.floor(Date.now() / 1000) + parseInt(accessTokenExp);
+
+        return {
+            success: true,
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_token,
+            user
+        };
     }
 
     async googleLogin(idToken: string) {
@@ -120,9 +151,15 @@ export class AuthService {
                 role: userRole?._id,
             });
             const freePlan = await this.subscriptionsService.findPlanBySlug('free');
-            if (freePlan) await this.subscriptionsService.createInitialSubscription(user._id.toString(), freePlan._id.toString());
+            if (freePlan)
+                await this.subscriptionsService.createInitialSubscription(
+                    user._id.toString(),
+                    freePlan._id.toString(),
+                );
             await this.mailService.sendWelcomeEmail(user.email, user.first_name);
         }
+
+        await this.usersService.updateLastLogin(user._id.toString());
         return this.generateTokens(user);
     }
 }

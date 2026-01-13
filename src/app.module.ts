@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose'; // Importar esto
 import { configurations, configValidationSchema } from './core/config';
 import { MongoModule } from './core/database/mongo.module';
 import { GraphqlModule } from './core/graphql/graphql.module';
@@ -19,9 +20,13 @@ import { LocationsModule } from './modules/locations/locations.module';
 import { EmailModule } from './shared/email/email.module';
 import { GoogleModule } from './shared/google/google.module';
 
+// Seeding
+import { SeedService } from 'src/core/database/seed.service';
+import { Role, RoleSchema } from './modules/roles/models/role.model';
+import { SubscriptionPlan, SubscriptionPlanSchema } from './modules/subscriptions/models/subscription-plan.model';
+
 @Module({
     imports: [
-        // Core Infrastructure
         ConfigModule.forRoot({
             isGlobal: true,
             load: configurations,
@@ -30,11 +35,14 @@ import { GoogleModule } from './shared/google/google.module';
         MongoModule,
         GraphqlModule,
 
-        // Shared Utilities (Email and OAuth)
+        // Necesario para que el SeedService use los modelos
+        MongooseModule.forFeature([
+            { name: Role.name, schema: RoleSchema },
+            { name: SubscriptionPlan.name, schema: SubscriptionPlanSchema },
+        ]),
+
         EmailModule,
         GoogleModule,
-
-        // Application Features
         AuthModule,
         UsersModule,
         RolesModule,
@@ -45,5 +53,6 @@ import { GoogleModule } from './shared/google/google.module';
         LanguagesModule,
         LocationsModule,
     ],
+    providers: [SeedService], // Registrar el servicio de semilla
 })
 export class AppModule { }
