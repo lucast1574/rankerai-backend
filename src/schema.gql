@@ -181,6 +181,11 @@ input LoginInput {
   password: String!
 }
 
+type LogoutResponse {
+  message: String
+  success: Boolean!
+}
+
 type Mutation {
   """Public endpoint to submit a contact inquiry"""
   createContact(createContactInput: CreateContactInput!): ContactEntity!
@@ -221,6 +226,9 @@ type Mutation {
 
   """Authenticate via Google ID Token"""
   signInWithGoogle(input: IdTokenGoogleAuthInput!): AuthResponse!
+
+  """Logout the user"""
+  signOutUser: LogoutResponse!
   testConsumeCredit(amount: Float!, type: String!): Boolean!
 
   """Update a contact entry status or details (Admin only)"""

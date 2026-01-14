@@ -34,13 +34,15 @@ export class AuthService {
         const payload = {
             userId: userId,
             email: user.email,
-            role: roleSlug
+            role: roleSlug,
         };
 
         const jwtSecret = this.configService.get<string>('auth.jwtSecret');
-        const jwtExpiration = this.configService.get<string>('auth.jwtExpiration') || '15m';
+        const jwtExpiration =
+            this.configService.get<string>('auth.jwtExpiration') || '15m';
         const refreshSecret = this.configService.get<string>('auth.jwtRefreshSecret');
-        const refreshExpiration = this.configService.get<string>('auth.jwtRefreshExpiration') || '7d';
+        const refreshExpiration =
+            this.configService.get<string>('auth.jwtRefreshExpiration') || '7d';
 
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, {
@@ -67,7 +69,8 @@ export class AuthService {
         }
 
         const userRole = await this.rolesService.findBySlug('user');
-        if (!userRole) throw new InternalServerErrorException('Default role not found');
+        if (!userRole)
+            throw new InternalServerErrorException('Default role not found');
 
         const hashedPassword = await argon2.hash(input.password);
 
@@ -83,9 +86,15 @@ export class AuthService {
 
         try {
             if ((this.mailService as any).sendWelcomeEmail) {
-                await (this.mailService as any).sendWelcomeEmail(newUser.email, newUser.first_name);
+                await (this.mailService as any).sendWelcomeEmail(
+                    newUser.email,
+                    newUser.first_name,
+                );
             } else if ((this.mailService as any).sendWelcome) {
-                await (this.mailService as any).sendWelcome(newUser.email, newUser.first_name);
+                await (this.mailService as any).sendWelcome(
+                    newUser.email,
+                    newUser.first_name,
+                );
             }
         } catch (error) {
             console.error('Failed to send welcome email:', error);
@@ -105,10 +114,15 @@ export class AuthService {
         }
 
         if ((user as any).provider !== 'local') {
-            throw new UnauthorizedException(`Please login with ${(user as any).provider}`);
+            throw new UnauthorizedException(
+                `Please login with ${(user as any).provider}`,
+            );
         }
 
-        const isPasswordValid = await argon2.verify((user as any).password, input.password);
+        const isPasswordValid = await argon2.verify(
+            (user as any).password,
+            input.password,
+        );
         if (!isPasswordValid) {
             throw new UnauthorizedException('Invalid credentials');
         }
@@ -133,18 +147,23 @@ export class AuthService {
         const { email, given_name, family_name, picture } = googlePayload;
 
         if (!email) {
-            throw new BadRequestException('Google account does not have an email address');
+            throw new BadRequestException(
+                'Google account does not have an email address',
+            );
         }
 
         let user = await this.usersService.findByEmail(email);
 
         if (user) {
             if (!(user as any).avatar && picture) {
-                await this.usersService.update((user as any)._id.toString(), { avatar: picture } as any);
+                await this.usersService.update((user as any)._id.toString(), {
+                    avatar: picture,
+                } as any);
             }
         } else {
             const userRole = await this.rolesService.findBySlug('user');
-            if (!userRole) throw new InternalServerErrorException('Default role not found');
+            if (!userRole)
+                throw new InternalServerErrorException('Default role not found');
 
             user = await this.usersService.create({
                 email,
@@ -160,7 +179,10 @@ export class AuthService {
 
             try {
                 if ((this.mailService as any).sendWelcomeEmail) {
-                    await (this.mailService as any).sendWelcomeEmail(user.email, user.first_name);
+                    await (this.mailService as any).sendWelcomeEmail(
+                        user.email,
+                        user.first_name,
+                    );
                 }
             } catch (e) {
                 console.error(e);
@@ -179,7 +201,9 @@ export class AuthService {
 
     async refreshToken(token: string) {
         try {
-            const refreshSecret = this.configService.get<string>('auth.jwtRefreshSecret');
+            const refreshSecret = this.configService.get<string>(
+                'auth.jwtRefreshSecret',
+            );
 
             const payload = await this.jwtService.verifyAsync(token, {
                 secret: refreshSecret || '',
@@ -209,21 +233,39 @@ export class AuthService {
 
         const resetToken = this.jwtService.sign(
             { userId: (user as any)._id, email: user.email },
-            { secret: jwtSecret, expiresIn: '15m' as any }
+            { secret: jwtSecret, expiresIn: '15m' as any },
         );
 
-        const resetLink = `${this.configService.get('FRONTEND_URL')}/reset-password?token=${resetToken}`;
+        const resetLink = `${this.configService.get(
+            'FRONTEND_URL',
+        )}/reset-password?token=${resetToken}`;
 
         try {
             if ((this.mailService as any).sendForgotPasswordEmail) {
-                await (this.mailService as any).sendForgotPasswordEmail(user.email, user.first_name, resetLink);
+                await (this.mailService as any).sendForgotPasswordEmail(
+                    user.email,
+                    user.first_name,
+                    resetLink,
+                );
             } else if ((this.mailService as any).sendForgotPassword) {
-                await (this.mailService as any).sendForgotPassword(user.email, user.first_name, resetLink);
+                await (this.mailService as any).sendForgotPassword(
+                    user.email,
+                    user.first_name,
+                    resetLink,
+                );
             }
         } catch (e) {
             console.error(e);
         }
 
         return true;
+    }
+
+    async logout() {
+        // Return the simple object matching LogoutResponse
+        return {
+            success: true,
+            message: 'Logged out successfully',
+        };
     }
 }

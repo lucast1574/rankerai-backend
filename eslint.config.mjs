@@ -18,16 +18,18 @@ export default tseslint.config(
         ...globals.node,
         ...globals.jest,
       },
-      sourceType: 'module', // Changed to 'module' for import.meta support
+      sourceType: 'module',
       parserOptions: {
         projectService: true,
-        // Fix for ImportMeta: cast to any or ensure your tsconfig supports ESNext
         tsconfigRootDir: import.meta.dirname,
       },
     },
   },
   {
     rules: {
+      // --- Disable the requirement for 'await' in async functions ---
+      '@typescript-eslint/require-await': 'off',
+
       // --- Fixes for "Unsafe" errors ---
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

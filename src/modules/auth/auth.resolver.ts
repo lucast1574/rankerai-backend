@@ -7,6 +7,7 @@ import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
 import { GoogleLoginInput } from './dto/google-login.input';
 import { AuthResponse } from './dto/auth-response.object';
+import { LogoutResponse } from './dto/logout-response.object'; // 1. Import the new DTO
 
 @Resolver(() => UserEntity)
 export class AuthResolver {
@@ -55,7 +56,6 @@ export class AuthResolver {
     }
 
     @Public()
-    // Renamed to 'signInWithGoogle' to match Frontend query
     @Mutation(() => AuthResponse, { name: 'signInWithGoogle', description: 'Authenticate via Google ID Token' })
     async googleLogin(
         @Args('input') input: GoogleLoginInput,
@@ -76,5 +76,13 @@ export class AuthResolver {
     @Mutation(() => Boolean, { description: 'Send reset password email' })
     async forgotPassword(@Args('email') email: string): Promise<boolean> {
         return await this.authService.forgotPassword(email);
+    }
+
+    // --- NEW MUTATION ---
+    // Named 'signOutUser' to match your frontend error
+    @Public()
+    @Mutation(() => LogoutResponse, { name: 'signOutUser', description: 'Logout the user' })
+    async signOutUser(): Promise<LogoutResponse> {
+        return await this.authService.logout();
     }
 }
