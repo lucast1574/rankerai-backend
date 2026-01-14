@@ -3,20 +3,11 @@
 # ------------------------------------------------------
 
 type AuthResponse {
-  """JWT access token for authentication"""
   access_token: String!
-
-  """Timestamp when the token expires"""
   expires_token: Int!
   message: String!
-
-  """JWT refresh token to obtain new access tokens"""
   refresh_token: String!
-
-  """Indicates if the operation was successful"""
   success: Boolean!
-
-  """The authenticated user profile"""
   user: UserEntity!
 }
 
@@ -152,8 +143,7 @@ type DocumentTypeEntity {
   slug: String!
 }
 
-input GoogleLoginInput {
-  """The id_token received from Google"""
+input IdTokenGoogleAuthInput {
   idToken: String!
 }
 
@@ -214,14 +204,11 @@ type Mutation {
   """Login with email and password"""
   login(input: LoginInput!): AuthResponse!
 
-  """Authenticate via Google ID Token"""
-  loginWithGoogle(input: GoogleLoginInput!): AuthResponse!
-
   """Get a new access token using a refresh token"""
   refreshToken(token: String!): AuthResponse!
 
   """Register a new user"""
-  register(input: RegisterInput!): UserEntity!
+  register(input: RegisterInput!): AuthResponse!
 
   """Delete a contact submission (Admin only)"""
   removeContact(id: ID!): Boolean!
@@ -231,6 +218,9 @@ type Mutation {
 
   """Remove a location entry (Admin only)"""
   removeLocation(id: ID!): Boolean!
+
+  """Authenticate via Google ID Token"""
+  signInWithGoogle(input: IdTokenGoogleAuthInput!): AuthResponse!
   testConsumeCredit(amount: Float!, type: String!): Boolean!
 
   """Update a contact entry status or details (Admin only)"""
@@ -428,6 +418,7 @@ type UserEntity {
   active: Boolean!
   allow_free_trial: Boolean!
   auth_provider: String!
+  avatar: String
   created_by: ID
   created_on: DateTime!
   domain: String
@@ -436,7 +427,7 @@ type UserEntity {
   is_registered: Boolean!
   language_id: ID
   last_login: DateTime
-  last_name: String!
+  last_name: String
   location_id: ID
   locked: Boolean!
   no_of_login: Int!

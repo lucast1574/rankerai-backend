@@ -33,8 +33,11 @@ export class UserEntity {
     @Field()
     first_name!: string;
 
-    @Field()
-    last_name!: string;
+    @Field({ nullable: true })
+    last_name?: string;
+
+    @Field({ nullable: true })
+    avatar?: string;
 
     @Field({ defaultValue: false })
     locked!: boolean;
@@ -72,7 +75,6 @@ export class UserEntity {
     @Field({ defaultValue: false })
     allow_free_trial!: boolean;
 
-    // Added Password Reset Fields
     @Field({ nullable: true })
     reset_password_token?: string;
 

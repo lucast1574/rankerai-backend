@@ -1,9 +1,11 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
-@InputType()
+// This name 'IdTokenGoogleAuthInput' matches what your Frontend sends
+@InputType('IdTokenGoogleAuthInput')
 export class GoogleLoginInput {
-    @Field({ description: 'The id_token received from Google' })
+    @Field()
+    @IsString()
     @IsNotEmpty()
-    idToken!: string;
+    idToken!: string; // <--- The '!' fixes the "no initializer" error
 }

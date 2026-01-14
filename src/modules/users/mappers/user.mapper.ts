@@ -4,12 +4,17 @@ import { UserEntity } from '../entities/user.entity';
 export class UserMapper {
     static toEntity(doc: UserDocument): UserEntity {
         const entity = new UserEntity();
+
         entity._id = doc._id.toString();
         entity.active = doc.active;
         entity.email = doc.email;
         entity.first_name = doc.first_name;
         entity.last_name = doc.last_name;
 
+        // ✅ NEW: Map the avatar field
+        entity.avatar = doc.avatar;
+
+        // Existing logic for role population check
         if (doc.role && typeof doc.role === 'object' && '_id' in (doc.role as any)) {
             entity.role = doc.role as any;
         }
@@ -25,16 +30,18 @@ export class UserMapper {
         entity.work_pattern = doc.work_pattern;
         entity.sitemap_url = doc.sitemap_url;
 
+        // Convert ObjectIds to strings safely
         entity.parent_id = doc.parent_id?.toString();
         entity.language_id = doc.language_id?.toString();
         entity.location_id = doc.location_id?.toString();
         entity.created_by = doc.created_by?.toString();
         entity.updated_by = doc.updated_by?.toString();
 
-        // Mapping new Password Reset Fields
+        // Password Reset Fields
         entity.reset_password_token = doc.reset_password_token;
         entity.reset_password_expires = doc.reset_password_expires;
 
+        // Timestamps (casted as any if strictly typed in Mongoose types)
         entity.created_on = (doc as any).created_on;
         entity.updated_on = (doc as any).updated_on;
 

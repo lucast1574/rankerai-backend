@@ -21,6 +21,8 @@ import { join } from 'path';
                     playground: gqlConfig.playground,
                     debug: gqlConfig.debug,
                     context: ({ req, res }) => ({ req, res }),
+                    // This forces GraphQL to use the global prefix (e.g., 'api-v1') set in main.ts
+                    useGlobalPrefix: true,
                 };
             },
         }),

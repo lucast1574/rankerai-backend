@@ -2,164 +2,228 @@ import {
     Injectable,
     UnauthorizedException,
     ConflictException,
+    InternalServerErrorException,
     BadRequestException,
-    NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
-import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { GoogleService } from '../../shared/google/google.service';
+import { LoginInput } from './dto/login.input';
+import { RegisterInput } from './dto/register.input';
+import * as argon2 from 'argon2';
+import { User } from '../users/models/user.model';
 import { RolesService } from '../roles/roles.service';
 import { MailService } from '../../shared/email/mail.service';
-import { GoogleService } from '../../shared/google/google.service';
-import { hashPassword, verifyPassword } from '../../shared/utils/hash.util';
-import { UserDocument } from '../users/models/user.model';
 
 @Injectable()
 export class AuthService {
     constructor(
         private readonly usersService: UsersService,
         private readonly jwtService: JwtService,
-        private readonly mailService: MailService,
-        private readonly googleService: GoogleService,
         private readonly configService: ConfigService,
-        private readonly subscriptionsService: SubscriptionsService,
+        private readonly googleService: GoogleService,
         private readonly rolesService: RolesService,
+        private readonly mailService: MailService,
     ) { }
 
-    async register(input: any): Promise<{ message: string; user: UserDocument }> {
-        const existing = await this.usersService.findByEmail(input.email);
-        if (existing) throw new ConflictException('User already exists');
+    public async generateTokens(user: User) {
+        const userId = (user as any)._id.toString();
+        const roleSlug = (user.role as any)?.slug || user.role;
 
-        const hashedPassword = await hashPassword(input.password);
-        const userRole = await this.rolesService.findBySlug('user');
-        if (!userRole) throw new NotFoundException('Default user role not found');
-
-        const user = await this.usersService.create({
-            ...input,
-            password_hash: hashedPassword,
-            auth_provider: 'CREDENTIALS',
-            role: userRole._id,
-        });
-
-        const freePlan = await this.subscriptionsService.findPlanBySlug('free');
-        if (freePlan) {
-            await this.subscriptionsService.createInitialSubscription(
-                user._id.toString(),
-                freePlan._id.toString(),
-            );
-        }
-
-        await this.mailService.sendWelcomeEmail(user.email, user.first_name);
-        return { message: 'Registration successful', user };
-    }
-
-    async login(input: any) {
-        const user = await this.usersService.findByEmail(input.email);
-        if (!user) throw new UnauthorizedException('Invalid credentials');
-        if (user.auth_provider === 'GOOGLE')
-            throw new BadRequestException('Use Google Login');
-
-        if (
-            !user.password_hash ||
-            !(await verifyPassword(input.password, user.password_hash))
-        ) {
-            throw new UnauthorizedException('Invalid credentials');
-        }
-
-        await this.usersService.updateLastLogin(user._id.toString());
-        return this.generateTokens(user);
-    }
-
-    async forgotPassword(email: string): Promise<boolean> {
-        const user = await this.usersService.findByEmail(email);
-        if (user && user.active) {
-            const resetToken = randomBytes(32).toString('hex');
-            await this.usersService.setResetToken(user._id, resetToken);
-            await this.mailService.sendForgotPasswordEmail(
-                user.email,
-                user.first_name,
-                resetToken,
-            );
-        }
-        return true;
-    }
-
-    async refreshToken(token: string) {
-        try {
-            const payload = await this.jwtService.verifyAsync(token, {
-                secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
-            });
-            const user = await this.usersService.findById(payload.sub);
-            if (!user || !user.active) throw new UnauthorizedException();
-            return this.generateTokens(user);
-        } catch {
-            throw new UnauthorizedException('Invalid refresh token');
-        }
-    }
-
-    private async generateTokens(user: UserDocument) {
-        const roleSlug =
-            user.role && typeof user.role === 'object'
-                ? (user.role as any).slug
-                : 'user';
         const payload = {
-            sub: user._id.toString(),
+            userId: userId,
             email: user.email,
-            role: roleSlug,
+            role: roleSlug
         };
 
-        const accessTokenExp = this.configService.getOrThrow<string>('auth.jwtExpiration');
+        const jwtSecret = this.configService.get<string>('auth.jwtSecret');
+        const jwtExpiration = this.configService.get<string>('auth.jwtExpiration') || '15m';
+        const refreshSecret = this.configService.get<string>('auth.jwtRefreshSecret');
+        const refreshExpiration = this.configService.get<string>('auth.jwtRefreshExpiration') || '7d';
 
         const [accessToken, refreshToken] = await Promise.all([
             this.jwtService.signAsync(payload, {
-                secret: this.configService.getOrThrow<string>('auth.jwtSecret'),
-                expiresIn: accessTokenExp as any,
+                secret: jwtSecret,
+                expiresIn: jwtExpiration as any,
             }),
             this.jwtService.signAsync(payload, {
-                secret: this.configService.getOrThrow<string>('auth.jwtRefreshSecret'),
-                expiresIn: this.configService.getOrThrow<string>(
-                    'auth.jwtRefreshExpiration',
-                ) as any,
+                secret: refreshSecret,
+                expiresIn: refreshExpiration as any,
             }),
         ]);
 
-        // Calculate expiration timestamp (Current time + seconds from config)
-        const expires_token = Math.floor(Date.now() / 1000) + parseInt(accessTokenExp);
-
         return {
-            success: true,
             access_token: accessToken,
             refresh_token: refreshToken,
-            expires_token,
-            user
+            expires_token: 900,
+        };
+    }
+
+    async register(input: RegisterInput) {
+        const existingUser = await this.usersService.findByEmail(input.email);
+        if (existingUser) {
+            throw new ConflictException('Email already in use');
+        }
+
+        const userRole = await this.rolesService.findBySlug('user');
+        if (!userRole) throw new InternalServerErrorException('Default role not found');
+
+        const hashedPassword = await argon2.hash(input.password);
+
+        const newUser = await this.usersService.create({
+            ...input,
+            password: hashedPassword,
+            role: (userRole as any)._id,
+            provider: 'local',
+            is_active: true,
+        });
+
+        const tokens = await this.generateTokens(newUser);
+
+        try {
+            if ((this.mailService as any).sendWelcomeEmail) {
+                await (this.mailService as any).sendWelcomeEmail(newUser.email, newUser.first_name);
+            } else if ((this.mailService as any).sendWelcome) {
+                await (this.mailService as any).sendWelcome(newUser.email, newUser.first_name);
+            }
+        } catch (error) {
+            console.error('Failed to send welcome email:', error);
+        }
+
+        return {
+            user: newUser,
+            ...tokens,
+            success: true,
+        };
+    }
+
+    async login(input: LoginInput) {
+        const user = await this.usersService.findByEmail(input.email);
+        if (!user) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        if ((user as any).provider !== 'local') {
+            throw new UnauthorizedException(`Please login with ${(user as any).provider}`);
+        }
+
+        const isPasswordValid = await argon2.verify((user as any).password, input.password);
+        if (!isPasswordValid) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        const tokens = await this.generateTokens(user);
+
+        return {
+            user,
+            ...tokens,
+            success: true,
         };
     }
 
     async googleLogin(idToken: string) {
-        const googlePayload = await this.googleService.verifyToken(idToken);
-        const email = googlePayload.email!;
-        let user = await this.usersService.findByEmail(email);
+        const safeToken = idToken || '';
 
-        if (!user) {
-            const userRole = await this.rolesService.findBySlug('user');
-            user = await this.usersService.createFromGoogle({
-                email,
-                first_name: googlePayload.given_name || 'User',
-                last_name: googlePayload.family_name || '',
-                role: userRole?._id,
-            });
-            const freePlan = await this.subscriptionsService.findPlanBySlug('free');
-            if (freePlan)
-                await this.subscriptionsService.createInitialSubscription(
-                    user._id.toString(),
-                    freePlan._id.toString(),
-                );
-            await this.mailService.sendWelcomeEmail(user.email, user.first_name);
+        const googlePayload = await this.googleService.verifyToken(safeToken);
+        if (!googlePayload) {
+            throw new UnauthorizedException('Invalid Google Token');
         }
 
-        await this.usersService.updateLastLogin(user._id.toString());
-        return this.generateTokens(user);
+        const { email, given_name, family_name, picture } = googlePayload;
+
+        if (!email) {
+            throw new BadRequestException('Google account does not have an email address');
+        }
+
+        let user = await this.usersService.findByEmail(email);
+
+        if (user) {
+            if (!(user as any).avatar && picture) {
+                await this.usersService.update((user as any)._id.toString(), { avatar: picture } as any);
+            }
+        } else {
+            const userRole = await this.rolesService.findBySlug('user');
+            if (!userRole) throw new InternalServerErrorException('Default role not found');
+
+            user = await this.usersService.create({
+                email,
+                first_name: given_name,
+                // FIX: Ensure no validation error if family_name is missing
+                last_name: family_name || '',
+                avatar: picture,
+                role: (userRole as any)._id,
+                provider: 'google',
+                is_active: true,
+                password: '',
+            });
+
+            try {
+                if ((this.mailService as any).sendWelcomeEmail) {
+                    await (this.mailService as any).sendWelcomeEmail(user.email, user.first_name);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        const tokens = await this.generateTokens(user);
+
+        return {
+            success: true,
+            message: 'Google login successful',
+            user,
+            ...tokens,
+        };
+    }
+
+    async refreshToken(token: string) {
+        try {
+            const refreshSecret = this.configService.get<string>('auth.jwtRefreshSecret');
+
+            const payload = await this.jwtService.verifyAsync(token, {
+                secret: refreshSecret || '',
+            });
+
+            const user = await this.usersService.findById(payload.userId);
+            if (!user) throw new UnauthorizedException('User not found');
+
+            const tokens = await this.generateTokens(user);
+
+            return {
+                success: true,
+                user,
+                ...tokens,
+            };
+        } catch (error) {
+            console.error('Refresh token error:', error);
+            throw new UnauthorizedException('Invalid or expired refresh token');
+        }
+    }
+
+    async forgotPassword(email: string): Promise<boolean> {
+        const user = await this.usersService.findByEmail(email);
+        if (!user) return false;
+
+        const jwtSecret = this.configService.get<string>('auth.jwtSecret');
+
+        const resetToken = this.jwtService.sign(
+            { userId: (user as any)._id, email: user.email },
+            { secret: jwtSecret, expiresIn: '15m' as any }
+        );
+
+        const resetLink = `${this.configService.get('FRONTEND_URL')}/reset-password?token=${resetToken}`;
+
+        try {
+            if ((this.mailService as any).sendForgotPasswordEmail) {
+                await (this.mailService as any).sendForgotPasswordEmail(user.email, user.first_name, resetLink);
+            } else if ((this.mailService as any).sendForgotPassword) {
+                await (this.mailService as any).sendForgotPassword(user.email, user.first_name, resetLink);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        return true;
     }
 }

@@ -34,8 +34,11 @@ export class User {
     @Prop({ required: true, trim: true })
     first_name!: string;
 
-    @Prop({ required: true, trim: true })
-    last_name!: string;
+    @Prop({ trim: true })
+    last_name?: string;
+
+    @Prop({ trim: true })
+    avatar?: string;
 
     @Prop({ select: false })
     password_hash?: string;
@@ -76,7 +79,6 @@ export class User {
     @Prop({ default: false, index: true })
     allow_free_trial!: boolean;
 
-    // Password Reset Fields
     @Prop({ index: true, sparse: true })
     reset_password_token?: string;
 
